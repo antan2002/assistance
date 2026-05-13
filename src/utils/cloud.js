@@ -31,7 +31,8 @@ function connectCloud(token, profile, userContext) {
     audioChunkCount = 0;
 
     return new Promise((resolve, reject) => {
-        const url = `wss://api.cheatingdaddy.com/ws?token=${encodeURIComponent(token)}`;
+        // TODO: replace with your own WebSocket backend URL
+        const url = `wss://api.assistance.local/ws?token=${encodeURIComponent(token)}`;
         console.log('[Cloud] Connecting to', url);
 
         cloudWs = new WebSocket(url);

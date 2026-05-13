@@ -161,7 +161,7 @@ export class AppHeader extends LitElement {
     async _checkForUpdates() {
         try {
             const currentVersion = await cheatingDaddy.getVersion();
-            const response = await fetch('https://raw.githubusercontent.com/sohzm/cheating-daddy/refs/heads/master/package.json');
+            const response = await fetch('https://raw.githubusercontent.com/antan2002/assistance/refs/heads/master/package.json');
             if (!response.ok) return;
 
             const remotePackage = await response.json();
@@ -190,7 +190,7 @@ export class AppHeader extends LitElement {
 
     async _openUpdatePage() {
         const { ipcRenderer } = require('electron');
-        await ipcRenderer.invoke('open-external', 'https://cheatingdaddy.com');
+        await ipcRenderer.invoke('open-external', 'https://github.com/antan2002/assistance');
     }
 
     disconnectedCallback() {
@@ -242,15 +242,15 @@ export class AppHeader extends LitElement {
 
     getViewTitle() {
         const titles = {
-            onboarding: 'Welcome to Cheating Daddy',
-            main: 'Cheating Daddy',
+            onboarding: 'Welcome to Assistance',
+            main: 'Assistance',
             customize: 'Customize',
             help: 'Help & Shortcuts',
             history: 'Conversation History',
             advanced: 'Advanced Tools',
-            assistant: 'Cheating Daddy',
+            assistant: 'Assistance',
         };
-        return titles[this.currentView] || 'Cheating Daddy';
+        return titles[this.currentView] || 'Assistance';
     }
 
     getElapsedTime() {

@@ -2,6 +2,8 @@ const { Ollama } = require('ollama');
 const { getSystemPrompt } = require('./prompts');
 const { sendToRenderer, initializeNewSession, saveConversationTurn } = require('./gemini');
 
+let onTranscriptionComplete = null;
+
 // ── State ──
 
 let ollamaClient = null;
@@ -179,6 +181,10 @@ async function transcribeAudio(pcm16kBuffer) {
     }
 }
 
+function setTranscriptionCallback(callback) {
+    onTranscriptionComplete = callback;
+}
+
 // ── Speech End Handler ──
 
 async function handleSpeechEnd(audioData) {
@@ -200,7 +206,12 @@ async function handleSpeechEnd(audioData) {
     }
 
     sendToRenderer('update-status', 'Generating response...');
-    await sendToOllama(transcription);
+
+    if (onTranscriptionComplete) {
+        await onTranscriptionComplete(transcription);
+    } else {
+        await sendToOllama(transcription);
+    }
 }
 
 // ── Ollama Chat ──
@@ -434,4 +445,6 @@ module.exports = {
     isLocalSessionActive,
     sendLocalText,
     sendLocalImage,
+    setTranscriptionCallback,
+    loadWhisperPipeline,
 };

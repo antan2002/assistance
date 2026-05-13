@@ -8,7 +8,7 @@ import { OnboardingView } from '../views/OnboardingView.js';
 import { AICustomizeView } from '../views/AICustomizeView.js';
 import { FeedbackView } from '../views/FeedbackView.js';
 
-export class CheatingDaddyApp extends LitElement {
+export class AssistanceApp extends LitElement {
     static styles = css`
         * {
             box-sizing: border-box;
@@ -66,30 +66,61 @@ export class CheatingDaddyApp extends LitElement {
             -webkit-app-region: no-drag;
         }
 
-        .traffic-light {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
+        /* macOS traffic light circles */
+        .win-btn, .mac-btn {
             border: none;
             cursor: pointer;
             padding: 0;
             transition: opacity 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .traffic-light:hover {
+        .win-btn:hover, .mac-btn:hover {
             opacity: 0.8;
         }
 
-        .traffic-light.close {
+        .mac-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .mac-btn.close {
             background: #FF5F57;
         }
 
-        .traffic-light.minimize {
+        .mac-btn.minimize {
             background: #FEBC2E;
         }
 
-        .traffic-light.maximize {
+        .mac-btn.maximize {
             background: #28C840;
+        }
+
+        /* Windows square buttons */
+        .win-btn {
+            width: 36px;
+            height: 28px;
+            background: transparent;
+            border-radius: 0;
+            color: var(--text-secondary);
+        }
+
+        .win-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .win-btn.close:hover {
+            background: #e81123;
+            color: #fff;
+        }
+
+        .win-btn svg {
+            width: 10px;
+            height: 10px;
         }
 
         .sidebar {
@@ -367,6 +398,7 @@ export class CheatingDaddyApp extends LitElement {
 
     constructor() {
         super();
+        this._isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
         this.currentView = 'main';
         this.statusText = '';
         this.startTime = null;
@@ -399,7 +431,7 @@ export class CheatingDaddyApp extends LitElement {
             this._localVersion = await cheatingDaddy.getVersion();
             this.requestUpdate();
 
-            const res = await fetch('https://raw.githubusercontent.com/sohzm/cheating-daddy/refs/heads/master/package.json');
+            const res = await fetch('https://raw.githubusercontent.com/antan2002/assistance/refs/heads/master/package.json');
             if (!res.ok) return;
             const remote = await res.json();
             const remoteVersion = remote.version;
@@ -596,16 +628,31 @@ export class CheatingDaddyApp extends LitElement {
                 return;
             }
         } else {
-            const apiKey = await cheatingDaddy.storage.getApiKey();
-            if (!apiKey || apiKey === '') {
-                const mainView = this.shadowRoot.querySelector('main-view');
-                if (mainView && mainView.triggerApiKeyError) {
-                    mainView.triggerApiKeyError();
-                }
-                return;
-            }
+            const aiProvider = prefs.selectedAiProvider || 'gemini';
+            const textProviders = ['openrouter', 'claude', 'openai', 'deepseek', 'opencode'];
 
-            await cheatingDaddy.initializeGemini(this.selectedProfile, this.selectedLanguage);
+            if (textProviders.includes(aiProvider)) {
+                const success = await cheatingDaddy.initializeTextProvider(aiProvider, this.selectedProfile);
+                if (!success) {
+                    const mainView = this.shadowRoot.querySelector('main-view');
+                    if (mainView && mainView.triggerApiKeyError) {
+                        mainView.triggerApiKeyError();
+                    }
+                    return;
+                }
+            } else {
+                // Default: Gemini Live API
+                const apiKey = await cheatingDaddy.storage.getApiKey();
+                if (!apiKey || apiKey === '') {
+                    const mainView = this.shadowRoot.querySelector('main-view');
+                    if (mainView && mainView.triggerApiKeyError) {
+                        mainView.triggerApiKeyError();
+                    }
+                    return;
+                }
+
+                await cheatingDaddy.initializeGemini(this.selectedProfile, this.selectedLanguage);
+            }
         }
 
         cheatingDaddy.startCapture(this.selectedScreenshotInterval, this.selectedImageQuality);
@@ -620,14 +667,7 @@ export class CheatingDaddyApp extends LitElement {
     async handleAPIKeyHelp() {
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
-            await ipcRenderer.invoke('open-external', 'https://cheatingdaddy.com/help/api-key');
-        }
-    }
-
-    async handleGroqAPIKeyHelp() {
-        if (window.require) {
-            const { ipcRenderer } = window.require('electron');
-            await ipcRenderer.invoke('open-external', 'https://console.groq.com/keys');
+            await ipcRenderer.invoke('open-external', 'https://github.com/antan2002/assistance');
         }
     }
 
@@ -792,7 +832,7 @@ export class CheatingDaddyApp extends LitElement {
         return html`
             <div class="sidebar ${this._isLiveMode() ? 'hidden' : ''}">
                 <div class="sidebar-brand">
-                    <h1>Cheating Daddy</h1>
+                    <h1>Assistance</h1>
                 </div>
                 <nav class="sidebar-nav">
                     ${items.map(item => html`
@@ -808,7 +848,7 @@ export class CheatingDaddyApp extends LitElement {
                 </nav>
                 <div class="sidebar-footer">
                     ${this._updateAvailable ? html`
-                        <button class="update-btn" @click=${() => this.handleExternalLinkClick('https://cheatingdaddy.com/download')}>
+                        <button class="update-btn" @click=${() => this.handleExternalLinkClick('https://github.com/antan2002/assistance/releases')}>
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5l5-5m-5-7v12" /></svg>
                             Update available
                         </button>
@@ -870,9 +910,21 @@ export class CheatingDaddyApp extends LitElement {
             <div class="app-shell">
                 <div class="top-drag-bar ${isLive ? 'hidden' : ''}">
                     <div class="traffic-lights">
-                        <button class="traffic-light close" @click=${() => this.handleClose()} title="Close"></button>
-                        <button class="traffic-light minimize" @click=${() => this._handleMinimize()} title="Minimize"></button>
-                        <button class="traffic-light maximize" title="Maximize"></button>
+                        ${this._isMac ? html`
+                            <button class="mac-btn close" @click=${() => this.handleClose()} title="Close"></button>
+                            <button class="mac-btn minimize" @click=${() => this._handleMinimize()} title="Minimize"></button>
+                            <button class="mac-btn maximize" title="Maximize"></button>
+                        ` : html`
+                            <button class="win-btn minimize" @click=${() => this._handleMinimize()} title="Minimize">
+                                <svg viewBox="0 0 10 10"><rect x="0" y="4.5" width="10" height="1" fill="currentColor"/></svg>
+                            </button>
+                            <button class="win-btn maximize" title="Maximize">
+                                <svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="0.5" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+                            </button>
+                            <button class="win-btn close" @click=${() => this.handleClose()} title="Close">
+                                <svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.2"/></svg>
+                            </button>
+                        `}
                     </div>
                     <div class="drag-region"></div>
                 </div>
@@ -888,4 +940,4 @@ export class CheatingDaddyApp extends LitElement {
     }
 }
 
-customElements.define('cheating-daddy-app', CheatingDaddyApp);
+customElements.define('assistance-app', AssistanceApp);

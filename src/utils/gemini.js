@@ -6,11 +6,17 @@ const { getSystemPrompt } = require('./prompts');
 const { getAvailableModel, incrementLimitCount, getApiKey, getGroqApiKey, incrementCharUsage, getModelForToday } = require('../storage');
 const { connectCloud, sendCloudAudio, sendCloudText, sendCloudImage, closeCloud, isCloudActive, setOnTurnComplete } = require('./cloud');
 
-// Lazy-loaded to avoid circular dependency (localai.js imports from gemini.js)
+// Lazy-loaded to avoid circular dependency
 let _localai = null;
 function getLocalAi() {
     if (!_localai) _localai = require('./localai');
     return _localai;
+}
+
+let _textai = null;
+function getTextAi() {
+    if (!_textai) _textai = require('./textai');
+    return _textai;
 }
 
 // Provider mode: 'byok', 'cloud', or 'local'
@@ -874,6 +880,49 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
         return success;
     });
 
+    ipcMain.handle('initialize-text-provider', async (event, provider, apiKey, model, profile, customPrompt) => {
+        currentProviderMode = provider;
+        const textai = getTextAi();
+
+            sendToRenderer('session-initializing', true);
+
+            try {
+                // Initialize the text provider session
+                const success = await textai.initSession(provider, apiKey, model, profile, customPrompt);
+            if (!success) {
+                currentProviderMode = 'byok';
+                sendToRenderer('session-initializing', false);
+                return false;
+            }
+
+            // Load Whisper for speech-to-text (reuse localai's pipeline)
+            const whisperModel = 'Xenova/whisper-small';
+            const pipeline = await getLocalAi().loadWhisperPipeline(whisperModel);
+            if (!pipeline) {
+                textai.closeSession();
+                currentProviderMode = 'byok';
+                sendToRenderer('session-initializing', false);
+                return false;
+            }
+
+            // Set up transcription callback: when Whisper transcribes speech, send to text provider
+            getLocalAi().setTranscriptionCallback(async (transcription) => {
+                await textai.sendText(transcription, apiKey);
+            });
+
+            // Reset localai VAD state
+            try { getLocalAi().closeLocalSession(); } catch (e) {}
+
+            sendToRenderer('session-initializing', false);
+            return true;
+        } catch (error) {
+            console.error(`[${provider}] Init error:`, error);
+            currentProviderMode = 'byok';
+            sendToRenderer('session-initializing', false);
+            return false;
+        }
+    });
+
     ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
         if (currentProviderMode === 'cloud') {
             try {
@@ -892,6 +941,18 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 return { success: true };
             } catch (error) {
                 console.error('Error sending local audio:', error);
+                return { success: false, error: error.message };
+            }
+        }
+        // Text providers (openrouter, claude, openai, deepseek) use localai's VAD + Whisper
+        const TEXT_PROVIDERS = ['openrouter', 'claude', 'openai', 'deepseek', 'opencode'];
+        if (TEXT_PROVIDERS.includes(currentProviderMode)) {
+            try {
+                const pcmBuffer = Buffer.from(data, 'base64');
+                getLocalAi().processLocalAudio(pcmBuffer);
+                return { success: true };
+            } catch (error) {
+                console.error(`Error sending ${currentProviderMode} audio:`, error);
                 return { success: false, error: error.message };
             }
         }
@@ -972,6 +1033,21 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 return result;
             }
 
+            const TEXT_PROVIDERS = ['openrouter', 'claude', 'openai', 'deepseek', 'opencode'];
+            if (TEXT_PROVIDERS.includes(currentProviderMode)) {
+                const creds = require('../storage').getCredentials();
+                const apiKeyMap = {
+                    openrouter: creds.openrouterApiKey,
+                    claude: creds.claudeApiKey,
+                    openai: creds.openaiApiKey,
+                    deepseek: creds.deepseekApiKey,
+                    opencode: creds.opencodeApiKey,
+                };
+                const apiKey = apiKeyMap[currentProviderMode];
+                const result = await getTextAi().sendImage(data, prompt, apiKey);
+                return result;
+            }
+
             // Use HTTP API instead of realtime session
             const result = await sendImageToGeminiHttp(data, prompt);
             return result;
@@ -1003,6 +1079,26 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 return await getLocalAi().sendLocalText(text.trim());
             } catch (error) {
                 console.error('Error sending local text:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        const TEXT_PROVIDERS = ['openrouter', 'claude', 'openai', 'deepseek', 'opencode'];
+        if (TEXT_PROVIDERS.includes(currentProviderMode)) {
+            try {
+                console.log(`Sending text to ${currentProviderMode}:`, text);
+                const creds = require('../storage').getCredentials();
+                const apiKeyMap = {
+                    openrouter: creds.openrouterApiKey,
+                    claude: creds.claudeApiKey,
+                    openai: creds.openaiApiKey,
+                    deepseek: creds.deepseekApiKey,
+                    opencode: creds.opencodeApiKey,
+                };
+                const apiKey = apiKeyMap[currentProviderMode];
+                return await getTextAi().sendText(text.trim(), apiKey);
+            } catch (error) {
+                console.error(`Error sending ${currentProviderMode} text:`, error);
                 return { success: false, error: error.message };
             }
         }
@@ -1065,6 +1161,15 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
 
             if (currentProviderMode === 'local') {
                 getLocalAi().closeLocalSession();
+                currentProviderMode = 'byok';
+                return { success: true };
+            }
+
+            const TEXT_PROVIDERS = ['openrouter', 'claude', 'openai', 'deepseek', 'opencode'];
+            if (TEXT_PROVIDERS.includes(currentProviderMode)) {
+                getTextAi().closeSession();
+                getLocalAi().closeLocalSession();
+                getLocalAi().setTranscriptionCallback(null);
                 currentProviderMode = 'byok';
                 return { success: true };
             }

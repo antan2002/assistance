@@ -1,8 +1,8 @@
 {
-    "name": "cheating-daddy",
-    "productName": "cheating-daddy",
+    "name": "assistance",
+    "productName": "assistance",
     "version": "0.7.0",
-    "description": "cheating daddy",
+    "description": "Real-time AI assistant for interviews, meetings, and presentations",
     "main": "src/index.js",
     "scripts": {
         "start": "electron-forge start",
@@ -12,15 +12,15 @@
         "lint": "echo \"No linting configured\""
     },
     "keywords": [
-        "cheating daddy",
-        "cheating daddy ai",
-        "cheating daddy ai assistant",
-        "cheating daddy ai assistant for interviews",
-        "cheating daddy ai assistant for interviews"
+        "ai assistant",
+        "interview helper",
+        "screen capture",
+        "real-time ai",
+        "productivity"
     ],
     "author": {
-        "name": "sohzm",
-        "email": "sohambharambe9@gmail.com"
+        "name": "antan2002",
+        "url": "https://github.com/antan2002"
     },
     "license": "GPL-3.0",
     "dependencies": {

@@ -488,10 +488,17 @@ export class MainView extends LitElement {
         whisperDownloading: { type: Boolean },
         // Internal state
         _mode: { state: true },
+        _aiProvider: { state: true },
         _token: { state: true },
         _geminiKey: { state: true },
         _groqKey: { state: true },
+        _claudeKey: { state: true },
         _openaiKey: { state: true },
+        _deepseekKey: { state: true },
+        _openrouterKey: { state: true },
+        _opencodeKey: { state: true },
+        _openrouterModels: { state: true },
+        _selectedOpenrouterModel: { state: true },
         _tokenError: { state: true },
         _keyError: { state: true },
         // Local AI state
@@ -511,10 +518,17 @@ export class MainView extends LitElement {
         this.whisperDownloading = false;
 
         this._mode = 'byok';
+        this._aiProvider = 'gemini';
         this._token = '';
         this._geminiKey = '';
         this._groqKey = '';
+        this._claudeKey = '';
         this._openaiKey = '';
+        this._deepseekKey = '';
+        this._openrouterKey = '';
+        this._opencodeKey = '';
+        this._openrouterModels = [];
+        this._selectedOpenrouterModel = '';
         this._tokenError = false;
         this._keyError = false;
         this._showLocalHelp = false;
@@ -545,11 +559,19 @@ export class MainView extends LitElement {
                 await cheatingDaddy.storage.updatePreference('providerMode', this._mode);
             }
 
+            // Load AI provider selection
+            this._aiProvider = prefs.selectedAiProvider || 'gemini';
+            this._selectedOpenrouterModel = prefs.selectedOpenrouterModel || '';
+
             // Load keys
             this._token = creds.cloudToken || '';
             this._geminiKey = await cheatingDaddy.storage.getApiKey().catch(() => '') || '';
             this._groqKey = await cheatingDaddy.storage.getGroqApiKey().catch(() => '') || '';
-            this._openaiKey = creds.openaiKey || '';
+            this._claudeKey = await cheatingDaddy.storage.getClaudeApiKey().catch(() => '') || '';
+            this._openaiKey = await cheatingDaddy.storage.getOpenaiApiKey().catch(() => '') || '';
+            this._deepseekKey = await cheatingDaddy.storage.getDeepseekApiKey().catch(() => '') || '';
+            this._openrouterKey = await cheatingDaddy.storage.getOpenrouterApiKey().catch(() => '') || '';
+            this._opencodeKey = await cheatingDaddy.storage.getOpenCodeApiKey().catch(() => '') || '';
 
             // Load local AI settings
             this._ollamaHost = prefs.ollamaHost || 'http://127.0.0.1:11434';
@@ -718,11 +740,67 @@ export class MainView extends LitElement {
 
     async _saveOpenaiKey(val) {
         this._openaiKey = val;
-        try {
-            const creds = await cheatingDaddy.storage.getCredentials().catch(() => ({}));
-            await cheatingDaddy.storage.setCredentials({ ...creds, openaiKey: val });
-        } catch (e) {}
+        await cheatingDaddy.storage.setOpenaiApiKey(val);
         this.requestUpdate();
+    }
+
+    async _saveClaudeKey(val) {
+        this._claudeKey = val;
+        await cheatingDaddy.storage.setClaudeApiKey(val);
+        this.requestUpdate();
+    }
+
+    async _saveDeepseekKey(val) {
+        this._deepseekKey = val;
+        await cheatingDaddy.storage.setDeepseekApiKey(val);
+        this.requestUpdate();
+    }
+
+    async _saveOpenrouterKey(val) {
+        this._openrouterKey = val;
+        await cheatingDaddy.storage.setOpenrouterApiKey(val);
+        this._fetchOpenrouterModels(val);
+        this.requestUpdate();
+    }
+
+    async _saveOpenCodeKey(val) {
+        this._opencodeKey = val;
+        await cheatingDaddy.storage.setOpenCodeApiKey(val);
+        this.requestUpdate();
+    }
+
+    async _saveOpenrouterModel(val) {
+        this._selectedOpenrouterModel = val;
+        await cheatingDaddy.storage.updatePreference('selectedOpenrouterModel', val);
+        this.requestUpdate();
+    }
+
+    async _saveAiProvider(val) {
+        this._aiProvider = val;
+        await cheatingDaddy.storage.updatePreference('selectedAiProvider', val);
+        if (val === 'openrouter' && this._openrouterKey) {
+            this._fetchOpenrouterModels(this._openrouterKey);
+        }
+        this.requestUpdate();
+    }
+
+    async _fetchOpenrouterModels(apiKey) {
+        if (!apiKey || !apiKey.trim()) {
+            this._openrouterModels = [];
+            this.requestUpdate();
+            return;
+        }
+        try {
+            const models = await window.cheatingDaddy.fetchOpenrouterModels(apiKey);
+            this._openrouterModels = models;
+            if (!this._selectedOpenrouterModel && models.length > 0) {
+                this._selectedOpenrouterModel = models[0].id;
+                await cheatingDaddy.storage.updatePreference('selectedOpenrouterModel', this._selectedOpenrouterModel);
+            }
+            this.requestUpdate();
+        } catch (e) {
+            console.error('Failed to fetch OpenRouter models:', e);
+        }
     }
 
     async _saveOllamaHost(val) {
@@ -753,13 +831,38 @@ export class MainView extends LitElement {
         if (this.isInitializing) return;
 
         if (this._mode === 'byok') {
-            if (!this._geminiKey.trim()) {
+            const provider = this._aiProvider;
+            if (provider === 'gemini' && !this._geminiKey.trim()) {
+                this._keyError = true;
+                this.requestUpdate();
+                return;
+            }
+            if (provider === 'openrouter' && !this._openrouterKey.trim()) {
+                this._keyError = true;
+                this.requestUpdate();
+                return;
+            }
+            if (provider === 'claude' && !this._claudeKey.trim()) {
+                this._keyError = true;
+                this.requestUpdate();
+                return;
+            }
+            if (provider === 'openai' && !this._openaiKey.trim()) {
+                this._keyError = true;
+                this.requestUpdate();
+                return;
+            }
+            if (provider === 'deepseek' && !this._deepseekKey.trim()) {
+                this._keyError = true;
+                this.requestUpdate();
+                return;
+            }
+            if (provider === 'opencode' && !this._opencodeKey.trim()) {
                 this._keyError = true;
                 this.requestUpdate();
                 return;
             }
         } else if (this._mode === 'local') {
-            // Local mode doesn't need API keys, just Ollama host
             if (!this._ollamaHost.trim()) {
                 return;
             }
@@ -819,33 +922,146 @@ export class MainView extends LitElement {
     // ── BYOK mode ──
 
     _renderByokMode() {
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
         return html`
             <div class="form-group">
-                <label class="form-label">Gemini API Key</label>
-                <input
-                    type="password"
-                    placeholder="Required"
-                    .value=${this._geminiKey}
-                    @input=${e => this._saveGeminiKey(e.target.value)}
-                    class=${this._keyError ? 'error' : ''}
-                />
-                <div class="form-hint">
-                    <span class="link" @click=${() => this.onExternalLink('https://aistudio.google.com/apikey')}>Get Gemini key</span>
-                </div>
+                <label class="form-label">AI Provider</label>
+                <select
+                    .value=${this._aiProvider}
+                    @change=${e => this._saveAiProvider(e.target.value)}
+                >
+                    <option value="gemini">Gemini (Live API)</option>
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="claude">Claude (Anthropic)</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="opencode">Big Pickel (OpenCode)</option>
+                </select>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Groq API Key</label>
-                <input
-                    type="password"
-                    placeholder="Optional"
-                    .value=${this._groqKey}
-                    @input=${e => this._saveGroqKey(e.target.value)}
-                />
-                <div class="form-hint">
-                    <span class="link" @click=${() => this.onExternalLink('https://console.groq.com/keys')}>Get Groq key</span>
+            ${this._aiProvider === 'gemini' ? html`
+                <div class="form-group">
+                    <label class="form-label">Gemini API Key</label>
+                    <input
+                        type="password"
+                        placeholder="Required"
+                        .value=${this._geminiKey}
+                        @input=${e => this._saveGeminiKey(e.target.value)}
+                        class=${this._keyError && !this._geminiKey.trim() ? 'error' : ''}
+                    />
+                    <div class="form-hint">
+                        <span class="link" @click=${() => this.onExternalLink('https://aistudio.google.com/apikey')}>Get Gemini key</span>
+                    </div>
                 </div>
-            </div>
+                <div class="form-group">
+                    <label class="form-label">Groq API Key (optional — faster text fallback)</label>
+                    <input
+                        type="password"
+                        placeholder="Optional"
+                        .value=${this._groqKey}
+                        @input=${e => this._saveGroqKey(e.target.value)}
+                    />
+                    <div class="form-hint">
+                        <span class="link" @click=${() => this.onExternalLink('https://console.groq.com/keys')}>Get Groq key</span>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${this._aiProvider === 'openrouter' ? html`
+                <div class="form-group">
+                    <label class="form-label">OpenRouter API Key</label>
+                    <input
+                        type="password"
+                        placeholder="Required"
+                        .value=${this._openrouterKey}
+                        @input=${e => this._saveOpenrouterKey(e.target.value)}
+                        class=${this._keyError && !this._openrouterKey.trim() ? 'error' : ''}
+                    />
+                    <div class="form-hint">
+                        <span class="link" @click=${() => this.onExternalLink('https://openrouter.ai/keys')}>Get OpenRouter key</span>
+                    </div>
+                </div>
+                ${this._openrouterModels.length > 0 ? html`
+                    <div class="form-group">
+                        <label class="form-label">Free Model</label>
+                        <select
+                            .value=${this._selectedOpenrouterModel}
+                            @change=${e => this._saveOpenrouterModel(e.target.value)}
+                        >
+                            ${this._openrouterModels.map(m => html`
+                                <option value=${m.id} ?selected=${this._selectedOpenrouterModel === m.id}>${m.name || m.id}</option>
+                            `)}
+                        </select>
+                    </div>
+                ` : this._openrouterKey.trim() ? html`
+                    <div class="form-hint">Fetching available models...</div>
+                ` : ''}
+            ` : ''}
+
+            ${this._aiProvider === 'claude' ? html`
+                <div class="form-group">
+                    <label class="form-label">Claude API Key</label>
+                    <input
+                        type="password"
+                        placeholder="Required"
+                        .value=${this._claudeKey}
+                        @input=${e => this._saveClaudeKey(e.target.value)}
+                        class=${this._keyError && !this._claudeKey.trim() ? 'error' : ''}
+                    />
+                    <div class="form-hint">
+                        <span class="link" @click=${() => this.onExternalLink('https://console.anthropic.com/')}>Get Claude key</span>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${this._aiProvider === 'openai' ? html`
+                <div class="form-group">
+                    <label class="form-label">OpenAI API Key</label>
+                    <input
+                        type="password"
+                        placeholder="Required"
+                        .value=${this._openaiKey}
+                        @input=${e => this._saveOpenaiKey(e.target.value)}
+                        class=${this._keyError && !this._openaiKey.trim() ? 'error' : ''}
+                    />
+                    <div class="form-hint">
+                        <span class="link" @click=${() => this.onExternalLink('https://platform.openai.com/api-keys')}>Get OpenAI key</span>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${this._aiProvider === 'deepseek' ? html`
+                <div class="form-group">
+                    <label class="form-label">DeepSeek API Key</label>
+                    <input
+                        type="password"
+                        placeholder="Required"
+                        .value=${this._deepseekKey}
+                        @input=${e => this._saveDeepseekKey(e.target.value)}
+                        class=${this._keyError && !this._deepseekKey.trim() ? 'error' : ''}
+                    />
+                    <div class="form-hint">
+                        <span class="link" @click=${() => this.onExternalLink('https://platform.deepseek.com/api_keys')}>Get DeepSeek key</span>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${this._aiProvider === 'opencode' ? html`
+                <div class="form-group">
+                    <label class="form-label">OpenCode API Key</label>
+                    <input
+                        type="password"
+                        placeholder="Required"
+                        .value=${this._opencodeKey}
+                        @input=${e => this._saveOpenCodeKey(e.target.value)}
+                        class=${this._keyError && !this._opencodeKey.trim() ? 'error' : ''}
+                    />
+                    <div class="form-hint">
+                        <span class="link" @click=${() => this.onExternalLink('https://opencode.ai')}>Get OpenCode key</span>
+                    </div>
+                </div>
+            ` : ''}
 
             ${this._renderStartButton()}
             ${this._renderDivider()}
@@ -918,16 +1134,25 @@ export class MainView extends LitElement {
         const helpIcon = html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0m9 5v.01" /><path d="M12 13.5a1.5 1.5 0 0 1 1-1.5a2.6 2.6 0 1 0-3-4" /></g></svg>`;
         const closeIcon = html`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12" /></svg>`;
 
+        const providerLabels = {
+            gemini: 'Gemini Live',
+            openrouter: 'OpenRouter',
+            claude: 'Claude',
+            openai: 'OpenAI',
+            deepseek: 'DeepSeek',
+            opencode: 'Big Pickel',
+        };
+
         return html`
             <div class="form-wrapper">
                 ${this._mode === 'local' ? html`
                     <div class="title-row">
-                        <div class="page-title">Cheating Daddy <span class="mode-suffix">Local AI</span></div>
+                        <div class="page-title">Assistance <span class="mode-suffix">Local AI</span></div>
                         <button class="help-btn" @click=${() => { this._showLocalHelp = !this._showLocalHelp; }}>${this._showLocalHelp ? closeIcon : helpIcon}</button>
                     </div>
                 ` : html`
                     <div class="page-title">
-                        ${html`Cheating Daddy <span class="mode-suffix">BYOK</span>`}
+                        ${html`Assistance <span class="mode-suffix">${providerLabels[this._aiProvider] || 'BYOK'}</span>`}
                     </div>
                 `}
                 <div class="page-subtitle">

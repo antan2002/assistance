@@ -56,6 +56,41 @@ const storage = {
     async setGroqApiKey(groqApiKey) {
         return ipcRenderer.invoke('storage:set-groq-api-key', groqApiKey);
     },
+    async getClaudeApiKey() {
+        const result = await ipcRenderer.invoke('storage:get-claude-api-key');
+        return result.success ? result.data : '';
+    },
+    async setClaudeApiKey(claudeApiKey) {
+        return ipcRenderer.invoke('storage:set-claude-api-key', claudeApiKey);
+    },
+    async getOpenaiApiKey() {
+        const result = await ipcRenderer.invoke('storage:get-openai-api-key');
+        return result.success ? result.data : '';
+    },
+    async setOpenaiApiKey(openaiApiKey) {
+        return ipcRenderer.invoke('storage:set-openai-api-key', openaiApiKey);
+    },
+    async getDeepseekApiKey() {
+        const result = await ipcRenderer.invoke('storage:get-deepseek-api-key');
+        return result.success ? result.data : '';
+    },
+    async setDeepseekApiKey(deepseekApiKey) {
+        return ipcRenderer.invoke('storage:set-deepseek-api-key', deepseekApiKey);
+    },
+    async getOpenrouterApiKey() {
+        const result = await ipcRenderer.invoke('storage:get-openrouter-api-key');
+        return result.success ? result.data : '';
+    },
+    async setOpenrouterApiKey(openrouterApiKey) {
+        return ipcRenderer.invoke('storage:set-openrouter-api-key', openrouterApiKey);
+    },
+    async getOpenCodeApiKey() {
+        const result = await ipcRenderer.invoke('storage:get-opencode-api-key');
+        return result.success ? result.data : '';
+    },
+    async setOpenCodeApiKey(opencodeApiKey) {
+        return ipcRenderer.invoke('storage:set-opencode-api-key', opencodeApiKey);
+    },
 
     // Preferences
     async getPreferences() {
@@ -167,6 +202,52 @@ async function initializeLocal(profile = 'interview') {
     } else {
         cheatingDaddy.setStatus('error');
         return false;
+    }
+}
+
+async function initializeTextProvider(provider, profile = 'interview') {
+    const creds = await storage.getCredentials();
+    const prefs = await storage.getPreferences();
+    const apiKeyMap = {
+        openrouter: creds.openrouterApiKey,
+        claude: creds.claudeApiKey,
+        openai: creds.openaiApiKey,
+        deepseek: creds.deepseekApiKey,
+        opencode: creds.opencodeApiKey,
+    };
+    const apiKey = apiKeyMap[provider];
+    if (!apiKey || !apiKey.trim()) {
+        cheatingDaddy.setStatus('error');
+        return false;
+    }
+    let model = '';
+    if (provider === 'openrouter') {
+        model = prefs.selectedOpenrouterModel || '';
+    } else if (provider === 'opencode') {
+        model = 'opencode/big-pickle';
+    }
+    const customPrompt = prefs.customPrompt || '';
+    const success = await ipcRenderer.invoke('initialize-text-provider', provider, apiKey, model, profile, customPrompt);
+    if (success) {
+        cheatingDaddy.setStatus(provider.charAt(0).toUpperCase() + provider.slice(1) + ' Live');
+        return true;
+    } else {
+        cheatingDaddy.setStatus('error');
+        return false;
+    }
+}
+
+async function fetchOpenrouterModels(apiKey) {
+    try {
+        const response = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return (data.data || []).filter(m => m.id && !m.id.includes('.'))
+            .map(m => ({ id: m.id, name: m.name || m.id }));
+    } catch {
+        return [];
     }
 }
 
@@ -783,7 +864,7 @@ function handleShortcut(shortcutKey) {
 }
 
 // Create reference to the main app element
-const cheatingDaddyApp = document.querySelector('cheating-daddy-app');
+const assistanceApp = document.querySelector('assistance-app');
 
 // ============ THEME SYSTEM ============
 const theme = {
@@ -1013,22 +1094,24 @@ const cheatingDaddy = {
     getVersion: async () => ipcRenderer.invoke('get-app-version'),
 
     // Element access
-    element: () => cheatingDaddyApp,
-    e: () => cheatingDaddyApp,
+    element: () => assistanceApp,
+    e: () => assistanceApp,
 
     // App state functions - access properties directly from the app element
-    getCurrentView: () => cheatingDaddyApp.currentView,
-    getLayoutMode: () => cheatingDaddyApp.layoutMode,
+    getCurrentView: () => assistanceApp.currentView,
+    getLayoutMode: () => assistanceApp.layoutMode,
 
     // Status and response functions
-    setStatus: text => cheatingDaddyApp.setStatus(text),
-    addNewResponse: response => cheatingDaddyApp.addNewResponse(response),
-    updateCurrentResponse: response => cheatingDaddyApp.updateCurrentResponse(response),
+    setStatus: text => assistanceApp.setStatus(text),
+    addNewResponse: response => assistanceApp.addNewResponse(response),
+    updateCurrentResponse: response => assistanceApp.updateCurrentResponse(response),
 
     // Core functionality
     initializeGemini,
     initializeCloud,
     initializeLocal,
+    initializeTextProvider,
+    fetchOpenrouterModels,
     startCapture,
     stopCapture,
     sendTextMessage,

@@ -5,6 +5,7 @@ if (require('electron-squirrel-startup')) {
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const { createWindow, updateGlobalShortcuts } = require('./utils/window');
 const { setupGeminiIpcHandlers, stopMacOSAudioCapture, sendToRenderer } = require('./utils/gemini');
+const textai = require('./utils/textai');
 const storage = require('./storage');
 
 const geminiSessionRef = { current: null };
@@ -133,6 +134,101 @@ function setupStorageIpcHandlers() {
             return { success: true };
         } catch (error) {
             console.error('Error setting Groq API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:get-claude-api-key', async () => {
+        try {
+            return { success: true, data: storage.getClaudeApiKey() };
+        } catch (error) {
+            console.error('Error getting Claude API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:set-claude-api-key', async (event, claudeApiKey) => {
+        try {
+            storage.setClaudeApiKey(claudeApiKey);
+            return { success: true };
+        } catch (error) {
+            console.error('Error setting Claude API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:get-openai-api-key', async () => {
+        try {
+            return { success: true, data: storage.getOpenaiApiKey() };
+        } catch (error) {
+            console.error('Error getting OpenAI API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:set-openai-api-key', async (event, openaiApiKey) => {
+        try {
+            storage.setOpenaiApiKey(openaiApiKey);
+            return { success: true };
+        } catch (error) {
+            console.error('Error setting OpenAI API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:get-deepseek-api-key', async () => {
+        try {
+            return { success: true, data: storage.getDeepseekApiKey() };
+        } catch (error) {
+            console.error('Error getting DeepSeek API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:set-deepseek-api-key', async (event, deepseekApiKey) => {
+        try {
+            storage.setDeepseekApiKey(deepseekApiKey);
+            return { success: true };
+        } catch (error) {
+            console.error('Error setting DeepSeek API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:get-openrouter-api-key', async () => {
+        try {
+            return { success: true, data: storage.getOpenrouterApiKey() };
+        } catch (error) {
+            console.error('Error getting OpenRouter API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:set-openrouter-api-key', async (event, openrouterApiKey) => {
+        try {
+            storage.setOpenrouterApiKey(openrouterApiKey);
+            return { success: true };
+        } catch (error) {
+            console.error('Error setting OpenRouter API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:get-opencode-api-key', async () => {
+        try {
+            return { success: true, data: storage.getOpenCodeApiKey() };
+        } catch (error) {
+            console.error('Error getting OpenCode API key:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('storage:set-opencode-api-key', async (event, opencodeApiKey) => {
+        try {
+            storage.setOpenCodeApiKey(opencodeApiKey);
+            return { success: true };
+        } catch (error) {
+            console.error('Error setting OpenCode API key:', error);
             return { success: false, error: error.message };
         }
     });

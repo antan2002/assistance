@@ -13,7 +13,12 @@ const DEFAULT_CONFIG = {
 
 const DEFAULT_CREDENTIALS = {
     apiKey: '',
-    groqApiKey: ''
+    groqApiKey: '',
+    claudeApiKey: '',
+    openaiApiKey: '',
+    deepseekApiKey: '',
+    openrouterApiKey: '',
+    opencodeApiKey: ''
 };
 
 const DEFAULT_PREFERENCES = {
@@ -28,6 +33,8 @@ const DEFAULT_PREFERENCES = {
     fontSize: 'medium',
     backgroundTransparency: 0.8,
     googleSearchEnabled: false,
+    selectedAiProvider: 'gemini',
+    selectedOpenrouterModel: '',
     ollamaHost: 'http://127.0.0.1:11434',
     ollamaModel: 'llama3.1',
     whisperModel: 'Xenova/whisper-small',
@@ -45,11 +52,11 @@ function getConfigDir() {
     let configDir;
 
     if (platform === 'win32') {
-        configDir = path.join(os.homedir(), 'AppData', 'Roaming', 'cheating-daddy-config');
+        configDir = path.join(os.homedir(), 'AppData', 'Roaming', 'assistance-config');
     } else if (platform === 'darwin') {
-        configDir = path.join(os.homedir(), 'Library', 'Application Support', 'cheating-daddy-config');
+        configDir = path.join(os.homedir(), 'Library', 'Application Support', 'assistance-config');
     } else {
-        configDir = path.join(os.homedir(), '.config', 'cheating-daddy-config');
+        configDir = path.join(os.homedir(), '.config', 'assistance-config');
     }
 
     return configDir;
@@ -203,6 +210,46 @@ function getGroqApiKey() {
 
 function setGroqApiKey(groqApiKey) {
     return setCredentials({ groqApiKey });
+}
+
+function getClaudeApiKey() {
+    return getCredentials().claudeApiKey || '';
+}
+
+function setClaudeApiKey(claudeApiKey) {
+    return setCredentials({ claudeApiKey });
+}
+
+function getOpenaiApiKey() {
+    return getCredentials().openaiApiKey || '';
+}
+
+function setOpenaiApiKey(openaiApiKey) {
+    return setCredentials({ openaiApiKey });
+}
+
+function getDeepseekApiKey() {
+    return getCredentials().deepseekApiKey || '';
+}
+
+function setDeepseekApiKey(deepseekApiKey) {
+    return setCredentials({ deepseekApiKey });
+}
+
+function getOpenrouterApiKey() {
+    return getCredentials().openrouterApiKey || '';
+}
+
+function setOpenrouterApiKey(openrouterApiKey) {
+    return setCredentials({ openrouterApiKey });
+}
+
+function getOpenCodeApiKey() {
+    return getCredentials().opencodeApiKey || '';
+}
+
+function setOpenCodeApiKey(opencodeApiKey) {
+    return setCredentials({ opencodeApiKey });
 }
 
 // ============ PREFERENCES ============
@@ -501,6 +548,16 @@ module.exports = {
     setApiKey,
     getGroqApiKey,
     setGroqApiKey,
+    getClaudeApiKey,
+    setClaudeApiKey,
+    getOpenaiApiKey,
+    setOpenaiApiKey,
+    getDeepseekApiKey,
+    setDeepseekApiKey,
+    getOpenrouterApiKey,
+    setOpenrouterApiKey,
+    getOpenCodeApiKey,
+    setOpenCodeApiKey,
 
     // Preferences
     getPreferences,
