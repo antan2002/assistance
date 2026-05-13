@@ -183,7 +183,7 @@ async function initializeGemini(profile = 'interview', language = 'en-US') {
         if (success) {
             cheatingDaddy.setStatus('Live');
         } else {
-            cheatingDaddy.setStatus('error');
+            // Error details already sent via update-status IPC from main process
         }
     }
 }
@@ -200,7 +200,7 @@ async function initializeLocal(profile = 'interview') {
         cheatingDaddy.setStatus('Local AI Live');
         return true;
     } else {
-        cheatingDaddy.setStatus('error');
+        // Error details already sent via update-status IPC from main process
         return false;
     }
 }
@@ -232,7 +232,7 @@ async function initializeTextProvider(provider, profile = 'interview') {
         cheatingDaddy.setStatus(provider.charAt(0).toUpperCase() + provider.slice(1) + ' Live');
         return true;
     } else {
-        cheatingDaddy.setStatus('error');
+        // Error details already sent via update-status IPC from main process
         return false;
     }
 }
@@ -265,7 +265,7 @@ async function initializeCloud(profile = 'interview') {
         cheatingDaddy.setStatus('Live');
         return true;
     } else {
-        cheatingDaddy.setStatus('error');
+        // Error details already sent via update-status IPC from main process
         return false;
     }
 }

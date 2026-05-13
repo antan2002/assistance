@@ -2,6 +2,31 @@ if (require('electron-squirrel-startup')) {
     process.exit(0);
 }
 
+// Disable Crashpad to prevent [crashpad_client_win.cc(868)] errors in dev
+// This is safe: crash reporter is not explicitly used by the app
+process.env.ELECTRON_DISABLE_CRASH_REPORTER = '1';
+try {
+    require('electron').crashReporter.start({ submitURL: '', uploadToServer: false });
+} catch (e) {
+    // Crash reporter not available or already configured — that's fine
+}
+
+// Catch uncaught exceptions to prevent the app from closing on native errors
+process.on('uncaughtException', (error) => {
+    console.error('[FATAL] Uncaught exception:', error);
+    try {
+        const { sendToRenderer } = require('./utils/gemini');
+        sendToRenderer('update-status', 'App error: ' + (error.message || 'Unknown error'));
+    } catch (_) {
+        // sendToRenderer might not be available yet
+    }
+});
+
+// Catch unhandled promise rejections
+process.on('unhandledRejection', (reason) => {
+    console.error('[FATAL] Unhandled rejection:', reason);
+});
+
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const { createWindow, updateGlobalShortcuts } = require('./utils/window');
 const { setupGeminiIpcHandlers, stopMacOSAudioCapture, sendToRenderer } = require('./utils/gemini');

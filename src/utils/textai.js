@@ -62,7 +62,7 @@ function buildRequestBody(messages, model) {
             };
         case 'opencode':
             return {
-                model: model || 'opencode/big-pickle',
+                model: model || 'opencode/kimi-k2.5',
                 messages: messages,
                 stream: true,
             };

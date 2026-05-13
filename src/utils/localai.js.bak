@@ -1,0 +1,129 @@
+async function loadWhisperPipeline(modelName) {
+    if (whisperPipeline) return whisperPipeline;
+    if (isWhisperLoading) {
+        console.log('[LocalAI] Whisper model already loading, waiting...');
+        return null;
+    }
+
+    isWhisperLoading = true;
+    console.log('[LocalAI] Loading Whisper model:', modelName);
+    sendToRenderer('whisper-downloading', true);
+    sendToRenderer('update-status', 'Loading Whisper model (first time may take a while)...');
+
+    // Memory check before loading
+    try {
+        const mem = process.memoryUsage();
+        const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
+        const heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
+        const is32Bit = process.arch === 'ia32';
+        console.log('[LocalAI] Memory before model load:', heapUsedMB, 'MB used,', heapTotalMB, 'MB total, arch:', process.arch);
+        if (is32Bit && heapTotalMB > 1024) {
+            console.warn('[LocalAI] Low memory environment detected, model may fail');
+            sendToRenderer('update-status', 'Warning: Low memory, model may not load');
+        }
+    } catch (memError) {
+        console.warn('[LocalAI] Memory check failed:', memError);
+    }
+
+    // Helper to delete corrupted cache
+    function clearModelCache(cacheDir, modelName) {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            // Fix: correctly map "Xenova/whisper-small" → cacheDir/Xenova/whisper-small
+            const modelCachePath = path.join(cacheDir, ...modelName.split('/'));
+            if (fs.existsSync(modelCachePath)) {
+                fs.rmSync(modelCachePath, { recursive: true, force: true });
+                console.log('[LocalAI] Cleared corrupted cache at:', modelCachePath);
+                return true;
+            } else {
+                console.warn('[LocalAI] Cache path not found:', modelCachePath);
+                return false;
+            }
+        } catch (e) {
+            console.error('[LocalAI] Failed to clear cache:', e.message);
+            return false;
+        }
+    }
+
+    let pipelineFn = null;
+    let cacheDir = null;
+
+    try {
+        console.log('[LocalAI] Importing @huggingface/transformers...');
+        const { pipeline, env } = await import('@huggingface/transformers');
+
+        const { app } = require('electron');
+        const path = require('path');
+        cacheDir = path.join(app.getPath('userData'), 'whisper-models');
+        env.cacheDir = cacheDir;
+        env.allowLocalModels = true;
+        env.allowRemoteModels = true;
+        env.usePaddleBackend = false;
+
+        // Store pipeline fn for retry use
+        pipelineFn = pipeline;
+
+        console.log('[LocalAI] Creating Whisper pipeline with model:', modelName, 'on CPU (q8)...');
+        whisperPipeline = await pipeline('automatic-speech-recognition', modelName, {
+            dtype: 'q8',
+            device: 'cpu',
+        });
+
+        console.log('[LocalAI] Whisper model loaded successfully');
+        sendToRenderer('whisper-downloading', false);
+        isWhisperLoading = false;
+        return whisperPipeline;
+
+    } catch (error) {
+        const errorMessage = error.message || 'Unknown error';
+        const isProtobufError =
+            errorMessage.includes('Protobuf parsing failed') ||
+            errorMessage.includes('corrupted') ||
+            errorMessage.includes('onnx');
+
+        console.error('[LocalAI] Failed to load Whisper model:', errorMessage);
+
+        if (isProtobufError && pipelineFn && cacheDir) {
+            console.warn('[LocalAI] Corrupted model detected, clearing cache and retrying...');
+            sendToRenderer('update-status', 'Corrupted model cache found, re-downloading...');
+
+            clearModelCache(cacheDir, modelName);
+
+            try {
+                whisperPipeline = await pipelineFn('automatic-speech-recognition', modelName, {
+                    dtype: 'q8',
+                    device: 'cpu',
+                });
+                console.log('[LocalAI] Whisper model loaded successfully on retry');
+                sendToRenderer('whisper-downloading', false);
+                isWhisperLoading = false;
+                return whisperPipeline;
+            } catch (retryError) {
+                console.error('[LocalAI] Retry also failed:', retryError.message || retryError);
+                // Fix: reset isWhisperLoading so future attempts aren't blocked
+                isWhisperLoading = false;
+                sendToRenderer('whisper-downloading', false);
+                sendToRenderer('update-status', 'Failed to re-download Whisper model. Try switching to whisper-tiny in settings.');
+                return null;
+            }
+        }
+
+        sendToRenderer('whisper-downloading', false);
+        sendToRenderer('update-status', 'Failed to load Whisper model: ' + errorMessage);
+        isWhisperLoading = false;
+        return null;
+    }
+}
+module.exports = {
+    initializeLocalSession,
+    processLocalAudio,
+    closeLocalSession,
+    resetVadState,
+    isLocalSessionActive,
+    setLocalActive,
+    sendLocalText,
+    sendLocalImage,
+    setTranscriptionCallback,
+    loadWhisperPipeline,
+};

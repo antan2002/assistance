@@ -5,7 +5,6 @@ const { sendToRenderer, initializeNewSession, saveConversationTurn } = require('
 let onTranscriptionComplete = null;
 
 // ── State ──
-
 let ollamaClient = null;
 let ollamaModel = null;
 let whisperPipeline = null;
@@ -33,37 +32,29 @@ let vadConfig = VAD_MODES.VERY_AGGRESSIVE;
 let resampleRemainder = Buffer.alloc(0);
 
 // ── Audio Resampling (24kHz → 16kHz) ──
-
 function resample24kTo16k(inputBuffer) {
-    // Combine with any leftover samples from previous call
     const combined = Buffer.concat([resampleRemainder, inputBuffer]);
-    const inputSamples = Math.floor(combined.length / 2); // 16-bit = 2 bytes per sample
-    // Ratio: 16000/24000 = 2/3, so for every 3 input samples we produce 2 output samples
+    const inputSamples = Math.floor(combined.length / 2);
     const outputSamples = Math.floor((inputSamples * 2) / 3);
     const outputBuffer = Buffer.alloc(outputSamples * 2);
 
     for (let i = 0; i < outputSamples; i++) {
-        // Map output sample index to input position
         const srcPos = (i * 3) / 2;
         const srcIndex = Math.floor(srcPos);
         const frac = srcPos - srcIndex;
-
         const s0 = combined.readInt16LE(srcIndex * 2);
         const s1 = srcIndex + 1 < inputSamples ? combined.readInt16LE((srcIndex + 1) * 2) : s0;
         const interpolated = Math.round(s0 + frac * (s1 - s0));
         outputBuffer.writeInt16LE(Math.max(-32768, Math.min(32767, interpolated)), i * 2);
     }
 
-    // Store remainder for next call
     const consumedInputSamples = Math.ceil((outputSamples * 3) / 2);
     const remainderStart = consumedInputSamples * 2;
     resampleRemainder = remainderStart < combined.length ? combined.slice(remainderStart) : Buffer.alloc(0);
-
     return outputBuffer;
 }
 
 // ── VAD (Voice Activity Detection) ──
-
 function calculateRMS(pcm16Buffer) {
     const samples = pcm16Buffer.length / 2;
     if (samples === 0) return 0;
@@ -82,7 +73,6 @@ function processVAD(pcm16kBuffer) {
     if (isVoice) {
         speechFrameCount++;
         silenceFrameCount = 0;
-
         if (!isSpeaking && speechFrameCount >= vadConfig.speechFramesRequired) {
             isSpeaking = true;
             speechBuffers = [];
@@ -92,13 +82,10 @@ function processVAD(pcm16kBuffer) {
     } else {
         silenceFrameCount++;
         speechFrameCount = 0;
-
         if (isSpeaking && silenceFrameCount >= vadConfig.silenceFramesRequired) {
             isSpeaking = false;
             console.log('[LocalAI] Speech ended, accumulated', speechBuffers.length, 'chunks');
             sendToRenderer('update-status', 'Transcribing...');
-
-            // Trigger transcription with accumulated audio
             const audioData = Buffer.concat(speechBuffers);
             speechBuffers = [];
             handleSpeechEnd(audioData);
@@ -106,17 +93,18 @@ function processVAD(pcm16kBuffer) {
         }
     }
 
-    // Accumulate audio during speech
     if (isSpeaking) {
         speechBuffers.push(Buffer.from(pcm16kBuffer));
     }
 }
 
 // ── Whisper Transcription ──
-
 async function loadWhisperPipeline(modelName) {
     if (whisperPipeline) return whisperPipeline;
-    if (isWhisperLoading) return null;
+    if (isWhisperLoading) {
+        console.log('[LocalAI] Whisper model already loading, waiting...');
+        return null;
+    }
 
     isWhisperLoading = true;
     console.log('[LocalAI] Loading Whisper model:', modelName);
@@ -124,24 +112,99 @@ async function loadWhisperPipeline(modelName) {
     sendToRenderer('update-status', 'Loading Whisper model (first time may take a while)...');
 
     try {
-        // Dynamic import for ESM module
+        const mem = process.memoryUsage();
+        const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
+        const heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
+        console.log('[LocalAI] Memory before model load:', heapUsedMB, 'MB used,', heapTotalMB, 'MB total, arch:', process.arch);
+        if (process.arch === 'ia32' && heapTotalMB > 1024) {
+            console.warn('[LocalAI] Low memory environment detected, model may fail');
+            sendToRenderer('update-status', 'Warning: Low memory, model may not load');
+        }
+    } catch (memError) {
+        console.warn('[LocalAI] Memory check failed:', memError);
+    }
+
+    function clearModelCache(cacheDir, modelName) {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const modelCachePath = path.join(cacheDir, ...modelName.split('/'));
+            if (fs.existsSync(modelCachePath)) {
+                fs.rmSync(modelCachePath, { recursive: true, force: true });
+                console.log('[LocalAI] Cleared corrupted cache at:', modelCachePath);
+                return true;
+            } else {
+                console.warn('[LocalAI] Cache path not found:', modelCachePath);
+                return false;
+            }
+        } catch (e) {
+            console.error('[LocalAI] Failed to clear cache:', e.message);
+            return false;
+        }
+    }
+
+    let pipelineFn = null;
+    let cacheDir = null;
+
+    try {
+        console.log('[LocalAI] Importing @huggingface/transformers...');
         const { pipeline, env } = await import('@huggingface/transformers');
-        // Cache models outside the asar archive so ONNX runtime can load them
+
         const { app } = require('electron');
         const path = require('path');
-        env.cacheDir = path.join(app.getPath('userData'), 'whisper-models');
+        cacheDir = path.join(app.getPath('userData'), 'whisper-models');
+        env.cacheDir = cacheDir;
+        env.allowLocalModels = true;
+        env.allowRemoteModels = true;
+        env.usePaddleBackend = false;
+
+        pipelineFn = pipeline;
+
+        console.log('[LocalAI] Creating Whisper pipeline with model:', modelName, 'on CPU (q8)...');
         whisperPipeline = await pipeline('automatic-speech-recognition', modelName, {
             dtype: 'q8',
-            device: 'auto',
+            device: 'cpu',
         });
+
         console.log('[LocalAI] Whisper model loaded successfully');
         sendToRenderer('whisper-downloading', false);
         isWhisperLoading = false;
         return whisperPipeline;
+
     } catch (error) {
-        console.error('[LocalAI] Failed to load Whisper model:', error);
+        const errorMessage = error.message || 'Unknown error';
+        const isProtobufError =
+            errorMessage.includes('Protobuf parsing failed') ||
+            errorMessage.includes('corrupted') ||
+            errorMessage.includes('onnx');
+
+        console.error('[LocalAI] Failed to load Whisper model:', errorMessage);
+
+        if (isProtobufError && pipelineFn && cacheDir) {
+            console.warn('[LocalAI] Corrupted model detected, clearing cache and retrying...');
+            sendToRenderer('update-status', 'Corrupted model cache found, re-downloading...');
+            clearModelCache(cacheDir, modelName);
+
+            try {
+                whisperPipeline = await pipelineFn('automatic-speech-recognition', modelName, {
+                    dtype: 'q8',
+                    device: 'cpu',
+                });
+                console.log('[LocalAI] Whisper model loaded successfully on retry');
+                sendToRenderer('whisper-downloading', false);
+                isWhisperLoading = false;
+                return whisperPipeline;
+            } catch (retryError) {
+                console.error('[LocalAI] Retry also failed:', retryError.message || retryError);
+                isWhisperLoading = false;
+                sendToRenderer('whisper-downloading', false);
+                sendToRenderer('update-status', 'Failed to re-download Whisper model. Try switching to whisper-tiny in settings.');
+                return null;
+            }
+        }
+
         sendToRenderer('whisper-downloading', false);
-        sendToRenderer('update-status', 'Failed to load Whisper model: ' + error.message);
+        sendToRenderer('update-status', 'Failed to load Whisper model: ' + errorMessage);
         isWhisperLoading = false;
         return null;
     }
@@ -161,17 +224,13 @@ async function transcribeAudio(pcm16kBuffer) {
         console.error('[LocalAI] Whisper pipeline not loaded');
         return null;
     }
-
     try {
         const float32Audio = pcm16ToFloat32(pcm16kBuffer);
-
-        // Whisper expects audio at 16kHz which is what we have
         const result = await whisperPipeline(float32Audio, {
             sampling_rate: 16000,
             language: 'en',
             task: 'transcribe',
         });
-
         const text = result.text?.trim();
         console.log('[LocalAI] Transcription:', text);
         return text;
@@ -186,11 +245,8 @@ function setTranscriptionCallback(callback) {
 }
 
 // ── Speech End Handler ──
-
 async function handleSpeechEnd(audioData) {
     if (!isLocalActive) return;
-
-    // Minimum audio length check (~0.5 seconds at 16kHz, 16-bit)
     if (audioData.length < 16000) {
         console.log('[LocalAI] Audio too short, skipping');
         sendToRenderer('update-status', 'Listening...');
@@ -198,7 +254,6 @@ async function handleSpeechEnd(audioData) {
     }
 
     const transcription = await transcribeAudio(audioData);
-
     if (!transcription || transcription.trim() === '' || transcription.trim().length < 2) {
         console.log('[LocalAI] Empty transcription, skipping');
         sendToRenderer('update-status', 'Listening...');
@@ -206,7 +261,6 @@ async function handleSpeechEnd(audioData) {
     }
 
     sendToRenderer('update-status', 'Generating response...');
-
     if (onTranscriptionComplete) {
         await onTranscriptionComplete(transcription);
     } else {
@@ -215,7 +269,6 @@ async function handleSpeechEnd(audioData) {
 }
 
 // ── Ollama Chat ──
-
 async function sendToOllama(transcription) {
     if (!ollamaClient || !ollamaModel) {
         console.error('[LocalAI] Ollama not configured');
@@ -223,13 +276,7 @@ async function sendToOllama(transcription) {
     }
 
     console.log('[LocalAI] Sending to Ollama:', transcription.substring(0, 100) + '...');
-
-    localConversationHistory.push({
-        role: 'user',
-        content: transcription.trim(),
-    });
-
-    // Keep history manageable
+    localConversationHistory.push({ role: 'user', content: transcription.trim() });
     if (localConversationHistory.length > 20) {
         localConversationHistory = localConversationHistory.slice(-20);
     }
@@ -240,12 +287,7 @@ async function sendToOllama(transcription) {
             ...localConversationHistory,
         ];
 
-        const response = await ollamaClient.chat({
-            model: ollamaModel,
-            messages,
-            stream: true,
-        });
-
+        const response = await ollamaClient.chat({ model: ollamaModel, messages, stream: true });
         let fullText = '';
         let isFirst = true;
 
@@ -259,11 +301,7 @@ async function sendToOllama(transcription) {
         }
 
         if (fullText.trim()) {
-            localConversationHistory.push({
-                role: 'assistant',
-                content: fullText.trim(),
-            });
-
+            localConversationHistory.push({ role: 'assistant', content: fullText.trim() });
             saveConversationTurn(transcription, fullText);
         }
 
@@ -276,21 +314,15 @@ async function sendToOllama(transcription) {
 }
 
 // ── Public API ──
-
 async function initializeLocalSession(ollamaHost, model, whisperModel, profile, customPrompt) {
     console.log('[LocalAI] Initializing local session:', { ollamaHost, model, whisperModel, profile });
-
     sendToRenderer('session-initializing', true);
 
     try {
-        // Setup system prompt
         currentSystemPrompt = getSystemPrompt(profile, customPrompt, false);
-
-        // Initialize Ollama client
         ollamaClient = new Ollama({ host: ollamaHost });
         ollamaModel = model;
 
-        // Test Ollama connection
         try {
             await ollamaClient.list();
             console.log('[LocalAI] Ollama connection verified');
@@ -301,14 +333,12 @@ async function initializeLocalSession(ollamaHost, model, whisperModel, profile, 
             return false;
         }
 
-        // Load Whisper model
         const pipeline = await loadWhisperPipeline(whisperModel);
         if (!pipeline) {
             sendToRenderer('session-initializing', false);
             return false;
         }
 
-        // Reset VAD state
         isSpeaking = false;
         speechBuffers = [];
         silenceFrameCount = 0;
@@ -316,13 +346,10 @@ async function initializeLocalSession(ollamaHost, model, whisperModel, profile, 
         resampleRemainder = Buffer.alloc(0);
         localConversationHistory = [];
 
-        // Initialize conversation session
         initializeNewSession(profile, customPrompt);
-
         isLocalActive = true;
         sendToRenderer('session-initializing', false);
         sendToRenderer('update-status', 'Local AI ready - Listening...');
-
         console.log('[LocalAI] Session initialized successfully');
         return true;
     } catch (error) {
@@ -335,8 +362,6 @@ async function initializeLocalSession(ollamaHost, model, whisperModel, profile, 
 
 function processLocalAudio(monoChunk24k) {
     if (!isLocalActive) return;
-
-    // Resample from 24kHz to 16kHz
     const pcm16k = resample24kTo16k(monoChunk24k);
     if (pcm16k.length > 0) {
         processVAD(pcm16k);
@@ -346,29 +371,33 @@ function processLocalAudio(monoChunk24k) {
 function closeLocalSession() {
     console.log('[LocalAI] Closing local session');
     isLocalActive = false;
+    resetVadState();
+    localConversationHistory = [];
+    ollamaClient = null;
+    ollamaModel = null;
+    currentSystemPrompt = null;
+}
+
+function resetVadState() {
     isSpeaking = false;
     speechBuffers = [];
     silenceFrameCount = 0;
     speechFrameCount = 0;
     resampleRemainder = Buffer.alloc(0);
-    localConversationHistory = [];
-    ollamaClient = null;
-    ollamaModel = null;
-    currentSystemPrompt = null;
-    // Note: whisperPipeline is kept loaded to avoid reloading on next session
 }
 
 function isLocalSessionActive() {
     return isLocalActive;
 }
 
-// ── Send text directly to Ollama (for manual text input) ──
+function setLocalActive(active) {
+    isLocalActive = active;
+}
 
 async function sendLocalText(text) {
     if (!isLocalActive || !ollamaClient) {
         return { success: false, error: 'No active local session' };
     }
-
     try {
         await sendToOllama(text);
         return { success: true };
@@ -381,20 +410,12 @@ async function sendLocalImage(base64Data, prompt) {
     if (!isLocalActive || !ollamaClient) {
         return { success: false, error: 'No active local session' };
     }
-
     try {
         console.log('[LocalAI] Sending image to Ollama');
         sendToRenderer('update-status', 'Analyzing image...');
 
-        const userMessage = {
-            role: 'user',
-            content: prompt,
-            images: [base64Data],
-        };
-
-        // Store text-only version in history
+        const userMessage = { role: 'user', content: prompt, images: [base64Data] };
         localConversationHistory.push({ role: 'user', content: prompt });
-
         if (localConversationHistory.length > 20) {
             localConversationHistory = localConversationHistory.slice(-20);
         }
@@ -405,12 +426,7 @@ async function sendLocalImage(base64Data, prompt) {
             userMessage,
         ];
 
-        const response = await ollamaClient.chat({
-            model: ollamaModel,
-            messages,
-            stream: true,
-        });
-
+        const response = await ollamaClient.chat({ model: ollamaModel, messages, stream: true });
         let fullText = '';
         let isFirst = true;
 
@@ -442,7 +458,9 @@ module.exports = {
     initializeLocalSession,
     processLocalAudio,
     closeLocalSession,
+    resetVadState,
     isLocalSessionActive,
+    setLocalActive,
     sendLocalText,
     sendLocalImage,
     setTranscriptionCallback,

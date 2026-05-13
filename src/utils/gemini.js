@@ -884,11 +884,11 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
         currentProviderMode = provider;
         const textai = getTextAi();
 
-            sendToRenderer('session-initializing', true);
+        sendToRenderer('session-initializing', true);
 
-            try {
-                // Initialize the text provider session
-                const success = await textai.initSession(provider, apiKey, model, profile, customPrompt);
+        try {
+            // Initialize the text provider session
+            const success = await textai.initSession(provider, apiKey, model, profile, customPrompt);
             if (!success) {
                 currentProviderMode = 'byok';
                 sendToRenderer('session-initializing', false);
@@ -896,9 +896,14 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             }
 
             // Load Whisper for speech-to-text (reuse localai's pipeline)
-            const whisperModel = 'Xenova/whisper-small';
+            // Use configured whisper model or fall back to small
+            const prefs = require('../storage').getPreferences();
+            const whisperModel = prefs.whisperModel || 'Xenova/whisper-small';
+            console.log(`[${provider}] Loading Whisper model for speech-to-text:`, whisperModel);
+
             const pipeline = await getLocalAi().loadWhisperPipeline(whisperModel);
             if (!pipeline) {
+                console.error(`[${provider}] Whisper model failed to load, cannot start speech-to-text session`);
                 textai.closeSession();
                 currentProviderMode = 'byok';
                 sendToRenderer('session-initializing', false);
@@ -910,13 +915,19 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 await textai.sendText(transcription, apiKey);
             });
 
-            // Reset localai VAD state
-            try { getLocalAi().closeLocalSession(); } catch (e) {}
+            // Reset VAD state and enable audio processing for Whisper
+            try {
+                const localai = getLocalAi();
+                localai.resetVadState();
+                localai.setLocalActive(true);
+            } catch (e) {
+                console.warn('[text-provider] VAD state reset failed:', e);
+            }
 
             sendToRenderer('session-initializing', false);
             return true;
         } catch (error) {
-            console.error(`[${provider}] Init error:`, error);
+            console.error(`[${provider}] Init error:`, error.message || error);
             currentProviderMode = 'byok';
             sendToRenderer('session-initializing', false);
             return false;
