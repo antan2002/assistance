@@ -298,6 +298,159 @@ export class AssistantView extends LitElement {
             height: calc(100% + 2px);
             pointer-events: none;
         }
+
+        @keyframes whisper-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── Push-to-talk Mic Button ── */
+
+        .mic-btn {
+            position: relative;
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+            overflow: visible;
+        }
+
+        .mic-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .mic-btn.idle {
+            animation: mic-idle-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes mic-idle-pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .mic-btn.listening {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--bg-surface);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+            animation: mic-listening-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes mic-listening-pulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(255, 255, 255, 0.1); }
+            50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.25); }
+        }
+
+        .mic-btn.processing {
+            pointer-events: none;
+            border-color: transparent;
+            color: var(--text-muted);
+            animation: mic-processing-spin 1s linear infinite;
+        }
+
+        @keyframes mic-processing-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .mic-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* ── Listening waveform bar ── */
+
+        .mic-waveform-wrap {
+            flex: 1;
+            height: 32px;
+            position: relative;
+            border-radius: 100px;
+            overflow: hidden;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+        }
+
+        .mic-waveform-wrap .mic-waveform-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .mic-waveform-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: var(--font-size-xs);
+            color: var(--text-secondary);
+            pointer-events: none;
+        }
+
+        .mic-waveform-label svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.8;
+        }
+
+        .mic-stop-btn {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--danger);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s;
+        }
+
+        .mic-stop-btn:hover {
+            opacity: 0.85;
+        }
+
+        .mic-stop-btn svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* ── Processing indicator ── */
+
+        .mic-processing-wrap {
+            flex: 1;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border-radius: 100px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+        }
+
+        .mic-processing-wrap .spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: whisper-spin 0.8s linear infinite;
+        }
     `;
 
     static properties = {
@@ -307,6 +460,8 @@ export class AssistantView extends LitElement {
         onSendText: { type: Function },
         shouldAnimateResponse: { type: Boolean },
         isAnalyzing: { type: Boolean, state: true },
+        _micState: { type: String, state: true },
+        _micMode: { type: String, state: true },
     };
 
     constructor() {
@@ -317,6 +472,11 @@ export class AssistantView extends LitElement {
         this.onSendText = () => {};
         this.isAnalyzing = false;
         this._animFrame = null;
+        this._micAnimFrame = null;
+        this._micState = 'idle';
+        this._micMode = 'always_on';
+        this._responseCountWhenStarted = 0;
+        this._micResponseCount = 0;
     }
 
     getProfileNames() {
@@ -332,9 +492,13 @@ export class AssistantView extends LitElement {
 
     getCurrentResponse() {
         const profileNames = this.getProfileNames();
-        return this.responses.length > 0 && this.currentResponseIndex >= 0
-            ? this.responses[this.currentResponseIndex]
-            : `Listening to your ${profileNames[this.selectedProfile] || 'session'}...`;
+        if (this.responses.length > 0 && this.currentResponseIndex >= 0) {
+            return this.responses[this.currentResponseIndex];
+        }
+        if (this._micMode === 'push_to_talk') {
+            return 'Click the microphone button or press Ctrl+Shift+D to start speaking.';
+        }
+        return `Listening to your ${profileNames[this.selectedProfile] || 'session'}...`;
     }
 
     renderMarkdown(content) {
@@ -427,6 +591,20 @@ export class AssistantView extends LitElement {
     connectedCallback() {
         super.connectedCallback();
 
+        this._micStateHandler = e => {
+            const newState = e.detail.state;
+            this._micState = newState;
+            if (newState === 'idle') {
+                this._stopMicWaveformAnimation();
+            } else if (newState === 'listening') {
+                this.updateComplete.then(() => this._startMicWaveformAnimation());
+            }
+            this.requestUpdate();
+        };
+        window.addEventListener('mic-state-changed', this._micStateHandler);
+
+        this._loadMicMode();
+
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
 
@@ -442,9 +620,33 @@ export class AssistantView extends LitElement {
         }
     }
 
+    async _loadMicMode() {
+        try {
+            const prefs = await window.cheatingDaddy.storage.getPreferences();
+            this._micMode = prefs.microphoneMode || 'always_on';
+            this._syncMicState();
+            this.requestUpdate();
+        } catch (e) {
+            this._micMode = 'always_on';
+        }
+    }
+
+    _syncMicState() {
+        if (this._micMode === 'push_to_talk' && window.cheatingDaddy) {
+            this._micState = window.cheatingDaddy.getMicState();
+        } else {
+            this._micState = 'idle';
+        }
+    }
+
     disconnectedCallback() {
         super.disconnectedCallback();
         this._stopWaveformAnimation();
+        this._stopMicWaveformAnimation();
+
+        if (this._micStateHandler) {
+            window.removeEventListener('mic-state-changed', this._micStateHandler);
+        }
 
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
@@ -469,6 +671,17 @@ export class AssistantView extends LitElement {
             e.preventDefault();
             this.handleSendText();
         }
+    }
+
+    handleMicClick() {
+        if (this._micMode !== 'push_to_talk') return;
+        window.cheatingDaddy.toggleMicListening();
+    }
+
+    handleMicStop() {
+        if (this._micMode !== 'push_to_talk') return;
+        this._micResponseCount = this.responses.length;
+        window.cheatingDaddy.stopMicListening();
     }
 
     async handleScreenAnswer() {
@@ -617,6 +830,61 @@ export class AssistantView extends LitElement {
         }
     }
 
+    _startMicWaveformAnimation() {
+        const canvas = this.shadowRoot.querySelector('.mic-waveform-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const accentColor = getComputedStyle(this).getPropertyValue('--accent').trim() || '#ffffff';
+        const w = rect.width;
+        const h = rect.height;
+        const barCount = 32;
+        const barWidth = 3;
+        const gap = (w - barCount * barWidth) / (barCount + 1);
+        const startTime = performance.now();
+
+        const draw = (now) => {
+            const elapsed = (now - startTime) / 1000;
+            ctx.clearRect(0, 0, w, h);
+
+            for (let i = 0; i < barCount; i++) {
+                const phase = (i / barCount) * Math.PI * 2 + elapsed * 4;
+                const envelope = Math.sin((i / barCount) * Math.PI) * 0.9 + 0.1;
+                const height = Math.max(2, Math.abs(Math.sin(phase)) * h * 0.7 * envelope);
+                const x = gap + i * (barWidth + gap);
+                const y = (h - height) / 2;
+
+                const alpha = 0.3 + (height / (h * 0.7)) * 0.7;
+                ctx.fillStyle = accentColor;
+                ctx.globalAlpha = alpha;
+                ctx.beginPath();
+                ctx.roundRect(x, y, barWidth, height, 1.5);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            this._micAnimFrame = requestAnimationFrame(draw);
+        };
+
+        this._micAnimFrame = requestAnimationFrame(draw);
+    }
+
+    _stopMicWaveformAnimation() {
+        if (this._micAnimFrame) {
+            cancelAnimationFrame(this._micAnimFrame);
+            this._micAnimFrame = null;
+        }
+        const canvas = this.shadowRoot.querySelector('.mic-waveform-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
     scrollToBottom() {
         setTimeout(() => {
             const container = this.shadowRoot.querySelector('.response-container');
@@ -650,6 +918,25 @@ export class AssistantView extends LitElement {
                 this.isAnalyzing = false;
             }
         }
+
+        if (changedProperties.has('_micState')) {
+            if (this._micState === 'listening') {
+                this.updateComplete.then(() => this._startMicWaveformAnimation());
+            } else {
+                this._stopMicWaveformAnimation();
+            }
+        }
+
+        if (changedProperties.has('responses') && this._micMode === 'push_to_talk' && this._micState === 'processing') {
+            if (this.responses.length > this._micResponseCount) {
+                this._micState = 'idle';
+                if (window.cheatingDaddy) {
+                    window.cheatingDaddy.setStatus('');
+                    window.cheatingDaddy.setMicState('idle');
+                }
+                this.requestUpdate();
+            }
+        }
     }
 
     updateResponseContent() {
@@ -662,6 +949,81 @@ export class AssistantView extends LitElement {
                 this.dispatchEvent(new CustomEvent('response-animation-complete', { bubbles: true, composed: true }));
             }
         }
+    }
+
+    _renderMicButton() {
+        if (this._micMode !== 'push_to_talk') return '';
+        const micIcon = html`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3" ry="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`;
+        return html`
+            <button class="mic-btn ${this._micState}" @click=${this.handleMicClick} title="Toggle microphone">
+                ${this._micState === 'processing' ? html`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 12h-8"/></svg>
+                ` : micIcon}
+            </button>
+        `;
+    }
+
+    _renderListeningUI() {
+        if (this._micMode !== 'push_to_talk' || this._micState !== 'listening') return '';
+        return html`
+            <div class="mic-waveform-wrap">
+                <canvas class="mic-waveform-canvas"></canvas>
+                <div class="mic-waveform-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3" ry="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                    Listening...
+                </div>
+            </div>
+            <button class="mic-stop-btn" @click=${this.handleMicStop} title="Stop and send">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        `;
+    }
+
+    _renderProcessingUI() {
+        if (this._micMode !== 'push_to_talk' || this._micState !== 'processing') return '';
+        return html`
+            <div class="mic-processing-wrap">
+                <div class="spinner"></div>
+                Processing...
+            </div>
+        `;
+    }
+
+    _renderInputBar() {
+        const isPushToTalk = this._micMode === 'push_to_talk';
+        const isListeningOrProcessing = isPushToTalk && (this._micState === 'listening' || this._micState === 'processing');
+
+        if (isListeningOrProcessing) {
+            return html`
+                <div class="input-bar">
+                    ${this._renderListeningUI()}
+                    ${this._renderProcessingUI()}
+                </div>
+            `;
+        }
+
+        return html`
+            <div class="input-bar">
+                <div class="input-bar-inner">
+                    <input
+                        type="text"
+                        id="textInput"
+                        placeholder="Type a message..."
+                        @keydown=${this.handleTextKeydown}
+                    />
+                </div>
+                ${this._renderMicButton()}
+                <button class="analyze-btn ${this.isAnalyzing ? 'analyzing' : ''}" @click=${this.handleScreenAnswer}>
+                    <canvas class="analyze-canvas"></canvas>
+                    <span class="analyze-btn-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+                            <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 3v7h6l-8 11v-7H5z" />
+                        </svg>
+                        Analyze Screen
+                    </span>
+                </button>
+            </div>
+        `;
     }
 
     render() {
@@ -686,25 +1048,7 @@ export class AssistantView extends LitElement {
                 </div>
             ` : ''}
 
-            <div class="input-bar">
-                <div class="input-bar-inner">
-                    <input
-                        type="text"
-                        id="textInput"
-                        placeholder="Type a message..."
-                        @keydown=${this.handleTextKeydown}
-                    />
-                </div>
-                <button class="analyze-btn ${this.isAnalyzing ? 'analyzing' : ''}" @click=${this.handleScreenAnswer}>
-                    <canvas class="analyze-canvas"></canvas>
-                    <span class="analyze-btn-content">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
-                            <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 3v7h6l-8 11v-7H5z" />
-                        </svg>
-                        Analyze Screen
-                    </span>
-                </button>
-            </div>
+            ${this._renderInputBar()}
         `;
     }
 }

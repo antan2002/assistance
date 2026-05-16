@@ -430,6 +430,24 @@
   .profile-pill:nth-child(odd) { background:var(--beige); }
   .profile-pill:nth-child(3n) { background:var(--purple); }
 
+  /* THEMES SHOWCASE */
+  .themes-grid {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:12px; margin-top:24px;
+  }
+  .theme-card {
+    border:2px solid var(--border); border-radius:10px;
+    padding:16px; text-align:center;
+    background:#fff; box-shadow: var(--shadow);
+    transition:all 0.15s;
+  }
+  .theme-card:hover { transform:translate(-2px,-2px); box-shadow: var(--shadow-lg); }
+  .theme-name { font-size:13px; font-weight:600; margin-top:8px; }
+  .theme-preview {
+    height:40px; border-radius:6px; border:1.5px solid var(--border);
+    margin-bottom:8px;
+  }
+
   /* FOOTER */
   footer {
     padding:40px 48px; border-top:2px solid var(--border);
@@ -501,13 +519,13 @@
 <!-- ─── HERO ─── -->
 <section class="hero">
   <!-- floating cards -->
-  <div class="float-card fc1">🎤 Live Transcription</div>
-  <div class="float-card fc2">⚡ Real-time Answers</div>
-  <div class="float-card fc3">🔒 100% Local Mode</div>
+  <div class="float-card fc1">🎤 Speaker Diarization</div>
+  <div class="float-card fc2">⚡ Real-time Streaming</div>
+  <div class="float-card fc3">🔒 100% Offline Mode</div>
 
-  <div class="badge"><span class="badge-dot"></span> v1.0 — Now Available</div>
+  <div class="badge"><span class="badge-dot"></span> GPL-3.0 — Open Source</div>
   <h1>Your AI<br/><span class="accent">Co-pilot</span><br/>In Real Time</h1>
-  <p class="hero-sub">Real-time AI assistant for interviews, meetings, and presentations. Bring your own API key or run fully offline.</p>
+  <p class="hero-sub">Desktop app for real-time AI assistance during interviews, meetings, and presentations. Bring your own API key or run completely offline with Ollama + Whisper.</p>
   <div class="hero-ctas">
     <a class="btn-hero yellow" href="#download">
       ↓ Download Free
@@ -536,7 +554,7 @@
         <div class="dash-item">📝 Exam</div>
         <br/>
         <div class="dash-sidebar-label">Provider</div>
-        <div class="dash-item" style="background:#f0ede8;border-radius:8px;font-weight:600;font-size:12px;">⚡ Gemini Flash Live</div>
+        <div class="dash-item" style="background:#f0ede8;border-radius:8px;font-weight:600;font-size:12px;">✨ Gemini 2.5 Flash</div>
       </div>
       <div class="dash-main">
         <div class="dash-main-header">
@@ -548,20 +566,20 @@
             <div class="dash-msg-avatar a">I</div>
             <div class="dash-msg-content">
               <div class="dash-msg-name">Interviewer</div>
-              Can you tell me about a time you had to debug a complex system under pressure?
+              Can you tell me about a time you debugged a distributed system under pressure?
             </div>
           </div>
           <div class="dash-msg">
             <div class="dash-msg-avatar b">Y</div>
             <div class="dash-msg-content">
               <div class="dash-msg-name">You</div>
-              Sure, at my last role we had a production outage…
+              Sure, at my previous role we had a Kafka consumer lag spike during peak traffic…
             </div>
           </div>
         </div>
         <div class="dash-ai-response">
           <div class="dash-ai-label">⚡ AI Suggestion</div>
-          <div class="dash-ai-text">Mention the STAR method: describe the <strong>Situation</strong>, the <strong>Task</strong>, what <strong>Action</strong> you took (e.g. added logging, isolated services), and the <strong>Result</strong> — uptime restored in 20 min<span class="dash-ai-cursor"></span></div>
+          <div class="dash-ai-text">Use the STAR method: <strong>Situation</strong> — Kafka lag at 50k+ msgs/sec. <strong>Task</strong> — restore consumer throughput. <strong>Action</strong> — added partition rebalancing + consumer scaling. <strong>Result</strong> — lag cleared in 15 min<span class="dash-ai-cursor"></span></div>
         </div>
       </div>
     </div>
@@ -573,17 +591,17 @@
   <div class="trust-inner">
     <div class="trust-item"><span class="trust-icon">🏠</span> Local-first</div>
     <div class="trust-item"><span class="trust-icon">✈️</span> Works Offline</div>
-    <div class="trust-item"><span class="trust-icon">🔌</span> Multi-Provider</div>
-    <div class="trust-item"><span class="trust-icon">⚡</span> Real-time</div>
+    <div class="trust-item"><span class="trust-icon">🔌</span> 7 AI Providers</div>
+    <div class="trust-item"><span class="trust-icon">⚡</span> Real-time Streaming</div>
     <div class="trust-item"><span class="trust-icon">💻</span> Cross-Platform</div>
-    <div class="trust-item"><span class="trust-icon">🔓</span> Open Source</div>
+    <div class="trust-item"><span class="trust-icon">🔓</span> GPL-3.0 License</div>
     <!-- duplicate for seamless loop -->
     <div class="trust-item"><span class="trust-icon">🏠</span> Local-first</div>
     <div class="trust-item"><span class="trust-icon">✈️</span> Works Offline</div>
-    <div class="trust-item"><span class="trust-icon">🔌</span> Multi-Provider</div>
-    <div class="trust-item"><span class="trust-icon">⚡</span> Real-time</div>
+    <div class="trust-item"><span class="trust-icon">🔌</span> 7 AI Providers</div>
+    <div class="trust-item"><span class="trust-icon">⚡</span> Real-time Streaming</div>
     <div class="trust-item"><span class="trust-icon">💻</span> Cross-Platform</div>
-    <div class="trust-item"><span class="trust-icon">🔓</span> Open Source</div>
+    <div class="trust-item"><span class="trust-icon">🔓</span> GPL-3.0 License</div>
   </div>
 </div>
 
@@ -596,7 +614,7 @@
     <div class="bento-card yellow wide fade-in">
       <div class="bento-label">Core AI</div>
       <div class="bento-title">Voice + Screen Understanding</div>
-      <div class="bento-desc">Speak naturally or send screenshots. Assistance listens to your conversation and understands what's on your screen — simultaneously.</div>
+      <div class="bento-desc">Listens to your conversation and sees what's on your screen simultaneously. Paste screenshots, share context, or let it monitor your display in real-time.</div>
       <div class="bento-wave">
         <div class="wave-bar" style="animation-delay:0s"></div>
         <div class="wave-bar" style="animation-delay:0.1s"></div>
@@ -616,13 +634,13 @@
     <!-- Tall card -->
     <div class="bento-card purple tall fade-in">
       <div class="bento-label">Privacy</div>
-      <div class="bento-title">Local AI Mode</div>
-      <div class="bento-desc">Run Ollama + Whisper locally. Your data never leaves your machine — fully offline, fully private.</div>
+      <div class="bento-title">Fully Offline Mode</div>
+      <div class="bento-desc">Run Ollama (any model, default llama3.1) + Whisper locally via HuggingFace Transformers. Zero network calls, zero cloud uploads. Your data never leaves your machine.</div>
       <div class="bento-mini" style="margin-top:24px;">
-        <div style="font-size:11px;font-weight:700;opacity:0.5;margin-bottom:8px;">STATUS</div>
+        <div style="font-size:11px;font-weight:700;opacity:0.5;margin-bottom:8px;">LOCAL STATUS</div>
         <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;">
           <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;"></span>
-          Ollama running locally
+          Ollama running (llama3.1)
         </div>
         <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-top:6px;opacity:0.5;">
           <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;"></span>
@@ -636,28 +654,28 @@
     <div class="bento-card mint fade-in">
       <div class="bento-icon">⚡</div>
       <div class="bento-label">Speed</div>
-      <div class="bento-title">Streaming Answers</div>
-      <div class="bento-desc">Responses stream as they generate. The AI types while it thinks — zero waiting.</div>
+      <div class="bento-title">Real-time Streaming</div>
+      <div class="bento-desc">AI responses stream as they generate via WebSocket (Gemini Live API). Zero waiting — the AI types while it thinks.</div>
     </div>
 
     <div class="bento-card beige fade-in">
       <div class="bento-icon">🎙️</div>
       <div class="bento-label">Transcription</div>
       <div class="bento-title">Speaker Diarization</div>
-      <div class="bento-desc">Know who said what. Automatically separates speakers so context is always clear.</div>
+      <div class="bento-desc">Automatically separates 2-6 speakers in real-time. Labels them as Speaker A, B, C so context is always clear.</div>
     </div>
 
     <div class="bento-card white fade-in">
       <div class="bento-icon">🔑</div>
       <div class="bento-label">Control</div>
-      <div class="bento-title">Your API Keys</div>
-      <div class="bento-desc">No subscription, no middleman. Plug in your own keys for any supported provider.</div>
+      <div class="bento-title">Bring Your Own Key</div>
+      <div class="bento-desc">No subscription, no middleman. Use your own API keys from Gemini, OpenAI, Claude, or any supported provider. Pay API costs directly.</div>
     </div>
 
     <div class="bento-card yellow wide fade-in">
       <div class="bento-label">Customization</div>
-      <div class="bento-title">Built-in Profiles System</div>
-      <div class="bento-desc">Switch between Interview, Sales Call, Meeting, Presentation, Negotiation, and Exam modes — each with tailored prompts.</div>
+      <div class="bento-title">6 Built-in Profiles + Custom Instructions</div>
+      <div class="bento-desc">Switch between Interview, Sales Call, Meeting, Presentation, Negotiation, and Exam modes. Paste your resume, job description, or any context to personalize responses.</div>
       <div class="profiles-grid" style="margin-top:20px;justify-content:flex-start;">
         <div class="profile-pill">🎯 Interview</div>
         <div class="profile-pill">📞 Sales Call</div>
@@ -667,6 +685,27 @@
         <div class="profile-pill">📝 Exam</div>
       </div>
     </div>
+
+    <div class="bento-card purple fade-in">
+      <div class="bento-icon">🎨</div>
+      <div class="bento-label">UI/UX</div>
+      <div class="bento-title">9 Themes + Transparency</div>
+      <div class="bento-desc">Dark, Light, Midnight Blue, Sepia, Catppuccin, Gruvbox, Rose Pine, Solarized, Tokyo Night. Adjustable background transparency and click-through mode.</div>
+    </div>
+
+    <div class="bento-card mint fade-in">
+      <div class="bento-icon">🌍</div>
+      <div class="bento-label">Languages</div>
+      <div class="bento-title">30+ Languages</div>
+      <div class="bento-desc">Speech transcription supports 30+ languages including English, Spanish, French, German, Chinese, Japanese, Hindi, and more.</div>
+    </div>
+
+    <div class="bento-card beige fade-in">
+      <div class="bento-icon">🔍</div>
+      <div class="bento-label">Grounding</div>
+      <div class="bento-title">Google Search Integration</div>
+      <div class="bento-desc">Toggle Google Search to ground AI responses in real-time web data. Useful for fact-checking or current events during conversations.</div>
+    </div>
   </div>
 </section>
 
@@ -674,19 +713,21 @@
 <section class="section" id="providers" style="background:var(--bg);">
   <div style="text-align:center;">
     <div class="section-label" style="margin:0 auto 24px;">🔌 Providers</div>
-    <h2 class="section-title" style="margin:0 auto 16px;text-align:center;">Works with Your<br/>Favorite AI</h2>
-    <p style="font-size:16px;color:#777;margin-bottom:48px;">Connect any provider with your own API key. No lock-in.</p>
+    <h2 class="section-title" style="margin:0 auto 16px;text-align:center;">7 Providers + Offline Mode</h2>
+    <p style="font-size:16px;color:#777;margin-bottom:48px;">Connect any provider with your own API key (BYOK). No lock-in, no subscription.</p>
   </div>
   <div class="providers-grid fade-in">
-    <div class="provider-card"><div class="provider-emoji">✨</div>Gemini</div>
+    <div class="provider-card"><div class="provider-emoji">✨</div>Gemini Live</div>
     <div class="provider-card"><div class="provider-emoji">🌐</div>OpenRouter</div>
     <div class="provider-card"><div class="provider-emoji">🤖</div>Claude</div>
     <div class="provider-card"><div class="provider-emoji">⚡</div>OpenAI</div>
     <div class="provider-card"><div class="provider-emoji">🔵</div>DeepSeek</div>
     <div class="provider-card"><div class="provider-emoji">🚀</div>Groq</div>
+    <div class="provider-card"><div class="provider-emoji">🧩</div>OpenCode</div>
     <div class="provider-card"><div class="provider-emoji">🏠</div>Ollama</div>
     <div class="provider-card"><div class="provider-emoji">🎙️</div>Whisper</div>
   </div>
+  <p style="text-align:center;margin-top:32px;font-size:14px;color:#888;">Primary: Gemini 2.5 Flash (WebSocket, real-time audio) • Offline: Ollama + Whisper</p>
 </section>
 
 <!-- ─── HOW IT WORKS ─── -->
@@ -699,15 +740,15 @@
       <div>
         <div class="how-num">01</div>
         <div class="how-title">Connect Your Provider</div>
-        <div class="how-desc">Add your API key from Gemini, OpenAI, Claude, or any supported provider. Or skip it — point Assistance to a local Ollama instance instead.</div>
+        <div class="how-desc">Add your API key from Gemini, OpenAI, Claude, OpenRouter, DeepSeek, Groq, or OpenCode. Or skip it entirely — point Assistance to a local Ollama instance and run 100% offline with Whisper transcription.</div>
       </div>
       <div class="how-visual y">
         <div style="font-size:13px;font-weight:700;opacity:0.5;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;">API Key Setup</div>
         <div style="border:1.5px solid #111;border-radius:8px;background:#fff;padding:12px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;box-shadow:2px 2px 0 #111;margin-bottom:10px;">
-          <span>Provider</span><span style="background:var(--yellow);padding:4px 10px;border-radius:6px;font-size:12px;border:1px solid #111;">Gemini Flash</span>
+          <span>Provider</span><span style="background:var(--yellow);padding:4px 10px;border-radius:6px;font-size:12px;border:1px solid #111;">Gemini Live</span>
         </div>
         <div style="border:1.5px solid #111;border-radius:8px;background:#fff;padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:8px;box-shadow:2px 2px 0 #111;">
-          <span>🔑</span><span style="opacity:0.4;">sk-••••••••••••••••••</span>
+          <span>🔑</span><span style="opacity:0.4;">AIzaSy••••••••••••••••••</span>
         </div>
         <div style="margin-top:12px;border:1.5px solid #111;border-radius:8px;background:#111;color:#fff;padding:12px 16px;font-size:13px;font-weight:700;text-align:center;cursor:pointer;box-shadow:2px 2px 0 #555;">Save & Connect →</div>
       </div>
@@ -718,18 +759,18 @@
     <div class="how-step reverse fade-in">
       <div>
         <div class="how-num">02</div>
-        <div class="how-title">Start Listening</div>
-        <div class="how-desc">Choose a profile — Interview, Meeting, Sales Call — and hit Record. Assistance begins transcribing in real time, separating speakers automatically.</div>
+        <div class="how-title">Choose Profile & Start Listening</div>
+        <div class="how-desc">Select Interview, Meeting, Sales Call, Presentation, Negotiation, or Exam mode. Hit Record. Assistance begins real-time transcription with automatic speaker separation. Choose speaker-only, mic-only, or both for audio input.</div>
       </div>
       <div class="how-visual b">
         <div style="font-size:13px;font-weight:700;opacity:0.5;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;">Live Transcript</div>
         <div style="display:flex;gap:10px;margin-bottom:10px;">
           <div style="width:28px;height:28px;border-radius:50%;border:1.5px solid #111;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">A</div>
-          <div style="font-size:12px;color:#555;">Tell me about yourself and your experience with distributed systems…</div>
+          <div style="font-size:12px;color:#555;">Tell me about your experience with distributed systems and event-driven architecture…</div>
         </div>
         <div style="display:flex;gap:10px;">
           <div style="width:28px;height:28px;border-radius:50%;border:1.5px solid #111;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">B</div>
-          <div style="font-size:12px;color:#555;">Sure! I've been working with Kafka and Kubernetes for the past three years…<span style="display:inline-block;width:2px;height:12px;background:#111;animation:blink 1s infinite;vertical-align:middle;margin-left:2px;"></span></div>
+          <div style="font-size:12px;color:#555;">I've worked with Apache Kafka and microservices for three years, handling 50k+ messages per second…<span style="display:inline-block;width:2px;height:12px;background:#111;animation:blink 1s infinite;vertical-align:middle;margin-left:2px;"></span></div>
         </div>
       </div>
     </div>
@@ -739,74 +780,63 @@
     <div class="how-step fade-in">
       <div>
         <div class="how-num">03</div>
-        <div class="how-title">Get Live AI Answers</div>
-        <div class="how-desc">As conversation flows, Assistance streams contextual suggestions, answers, and coaching — right when you need them, not after.</div>
+        <div class="how-title">Get Live AI Coaching</div>
+        <div class="how-desc">As the conversation flows, Assistance streams contextual suggestions, technical answers, and real-time coaching. Responses appear instantly via WebSocket streaming — right when you need them, not after the call ends.</div>
       </div>
       <div class="how-visual m">
         <div style="font-size:13px;font-weight:700;opacity:0.5;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;">AI Response</div>
         <div style="border:1.5px solid #111;border-radius:10px;background:var(--yellow);padding:14px;box-shadow:2px 2px 0 #111;">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">⚡ Suggestion</div>
-          <div style="font-size:13px;line-height:1.6;">Highlight your experience with <strong>Apache Kafka</strong> for event streaming. Mention you've handled 50k+ msgs/sec<span style="display:inline-block;width:2px;height:12px;background:#111;animation:blink 1s infinite;vertical-align:middle;margin-left:2px;"></span></div>
+          <div style="font-size:13px;line-height:1.6;">Mention your <strong>Kafka consumer lag optimization</strong> work — you reduced lag from 2 minutes to under 15 seconds by implementing partition rebalancing and scaling consumers horizontally<span style="display:inline-block;width:2px;height:12px;background:#111;animation:blink 1s infinite;vertical-align:middle;margin-left:2px;"></span></div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ─── TESTIMONIALS ─── -->
+<!-- ─── CUSTOMIZATION ─── -->
 <section class="section section-alt">
   <div style="text-align:center;">
-    <div class="section-label" style="margin:0 auto 24px;">💬 Testimonials</div>
-    <h2 class="section-title" style="margin:0 auto 48px;text-align:center;">Developers & Users Love It</h2>
+    <div class="section-label" style="margin:0 auto 24px;">🎨 Customization</div>
+    <h2 class="section-title" style="margin:0 auto 16px;text-align:center;">Make It Yours</h2>
+    <p style="font-size:16px;color:#777;margin-bottom:48px;">9 themes, adjustable transparency, keyboard shortcuts, click-through mode, and conversation history.</p>
   </div>
-  <div class="testimonials-grid">
-    <div class="testi-card fade-in">
-      <div class="testi-stars">★★★★★</div>
-      <div class="testi-text">"Used Assistance during three back-to-back technical interviews. The real-time suggestions were spot-on and helped me stay calm. I got all three offers."</div>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:var(--mint);">AK</div>
-        <div><div class="testi-name">Arjun Kumar</div><div class="testi-role">Senior Engineer @ Stripe</div></div>
-      </div>
+  <div class="themes-grid fade-in" style="max-width:900px;margin:0 auto;">
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #1a1a1a 50%, #2d2d2d 50%);"></div>
+      <div class="theme-name">Dark</div>
     </div>
-    <div class="testi-card fade-in">
-      <div class="testi-stars">★★★★★</div>
-      <div class="testi-text">"The local Ollama mode is the killer feature for me. Zero data leaves my laptop. Perfect for confidential client meetings where I can't use cloud AI."</div>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:var(--yellow);">MR</div>
-        <div><div class="testi-name">Maya Reyes</div><div class="testi-role">Consultant @ Deloitte</div></div>
-      </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #ffffff 50%, #f5f5f5 50%);"></div>
+      <div class="theme-name">Light</div>
     </div>
-    <div class="testi-card fade-in">
-      <div class="testi-stars">★★★★★</div>
-      <div class="testi-text">"Switched from a $40/mo tool to Assistance with my own Gemini key. Same quality, fraction of the cost. The speaker diarization actually works."</div>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:var(--beige);">TN</div>
-        <div><div class="testi-name">Tom Nakamura</div><div class="testi-role">Product Manager</div></div>
-      </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #1e3a5f 50%, #2c5f8d 50%);"></div>
+      <div class="theme-name">Midnight Blue</div>
     </div>
-    <div class="testi-card fade-in">
-      <div class="testi-stars">★★★★★</div>
-      <div class="testi-text">"Open source and genuinely good? Wild. I forked it to add custom prompts for my sales team. The codebase is clean and easy to extend."</div>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:var(--purple);">LF</div>
-        <div><div class="testi-name">Léa Fontaine</div><div class="testi-role">Indie Hacker</div></div>
-      </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #f4ecd8 50%, #e8dcc4 50%);"></div>
+      <div class="theme-name">Sepia</div>
     </div>
-    <div class="testi-card fade-in">
-      <div class="testi-stars">★★★★★</div>
-      <div class="testi-text">"The presentation mode is underrated. It coaches you on pacing and suggests talking points live while you're presenting. Changed how I prep for demos."</div>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:var(--mint);">SP</div>
-        <div><div class="testi-name">Sam Park</div><div class="testi-role">Startup Founder</div></div>
-      </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #1e1e2e 50%, #313244 50%);"></div>
+      <div class="theme-name">Catppuccin</div>
     </div>
-    <div class="testi-card fade-in">
-      <div class="testi-stars">★★★★★</div>
-      <div class="testi-text">"BYOK (bring your own key) was the deciding factor. I'm not paying a subscription to an opaque service when I already pay for API access directly."</div>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:var(--beige);">RB</div>
-        <div><div class="testi-name">Ravi Bhatt</div><div class="testi-role">ML Engineer</div></div>
-      </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #282828 50%, #3c3836 50%);"></div>
+      <div class="theme-name">Gruvbox</div>
+    </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #191724 50%, #26233a 50%);"></div>
+      <div class="theme-name">Rose Pine</div>
+    </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #002b36 50%, #073642 50%);"></div>
+      <div class="theme-name">Solarized</div>
+    </div>
+    <div class="theme-card">
+      <div class="theme-preview" style="background:linear-gradient(135deg, #1a1b26 50%, #24283b 50%);"></div>
+      <div class="theme-name">Tokyo Night</div>
     </div>
   </div>
 </section>
@@ -815,51 +845,55 @@
 <div class="download-section" id="download">
   <div class="section-label" style="margin:0 auto 24px;display:inline-flex;">↓ Download</div>
   <h2>Get Assistance<br/>For Free</h2>
-  <p>Available on macOS, Windows, and Linux. No account required.</p>
+  <p>Cross-platform desktop app. No account required. GPL-3.0 open source.</p>
   <div class="download-btns">
     <a class="dl-btn" href="https://github.com/antan2002/assistance/releases" target="_blank">
-      <span class="dl-icon">🍎</span> macOS
+      <span class="dl-icon">🍎</span> macOS (.dmg)
     </a>
     <a class="dl-btn" href="https://github.com/antan2002/assistance/releases/download/v1.0.0/Assistance-0.7.0.Setup.exe" target="_blank">
-      <span class="dl-icon">🪟</span> Windows
+      <span class="dl-icon">🪟</span> Windows (.exe)
     </a>
     <a class="dl-btn" href="https://github.com/antan2002/assistance/releases" target="_blank">
-      <span class="dl-icon">🐧</span> Linux
+      <span class="dl-icon">🐧</span> Linux (.AppImage)
     </a>
   </div>
-  <p style="margin-top:24px;font-size:13px;color:#888;">GPL-3.0 · Free forever · Open Source</p>
+  <p style="margin-top:24px;font-size:13px;color:#888;">GPL-3.0 License • Free forever • Electron 30 + LitElement UI</p>
 </div>
 
 <!-- ─── FAQ ─── -->
 <section class="section section-alt" id="faq">
   <div style="text-align:center;">
     <div class="section-label" style="margin:0 auto 24px;">? FAQ</div>
-    <h2 class="section-title" style="text-align:center;margin:0 auto 48px;">Common Questions,<br/>Answered Clearly</h2>
+    <h2 class="section-title" style="text-align:center;margin:0 auto 48px;">Common Questions</h2>
   </div>
   <div class="faq-list">
     <div class="faq-item">
       <button class="faq-q" onclick="toggleFaq(this)">Is Assistance free to use? <span class="faq-icon">+</span></button>
-      <div class="faq-a"><div class="faq-a-inner">Yes, completely free. It's open source under GPL-3.0. You only pay for the API usage from your chosen provider (e.g. Gemini, OpenAI), which is typically pennies per session.</div></div>
+      <div class="faq-a"><div class="faq-a-inner">Yes, completely free and open source under GPL-3.0. You only pay for API usage from your chosen provider (Gemini, OpenAI, Claude, etc.) which is typically pennies per session. Or use Ollama + Whisper for 100% free offline mode.</div></div>
     </div>
     <div class="faq-item">
       <button class="faq-q" onclick="toggleFaq(this)">Do I need to install anything extra? <span class="faq-icon">+</span></button>
-      <div class="faq-a"><div class="faq-a-inner">For cloud providers (Gemini, Claude, OpenAI etc.) just download and add your API key. For local mode, you'll also need Ollama and Whisper installed — both are free and easy to set up.</div></div>
+      <div class="faq-a"><div class="faq-a-inner">For cloud providers (Gemini, Claude, OpenAI, etc.) just download Assistance and add your API key. For offline mode, you'll need to install Ollama and Whisper locally — both are free and straightforward to set up.</div></div>
     </div>
     <div class="faq-item">
-      <button class="faq-q" onclick="toggleFaq(this)">Is there a free trial for cloud providers? <span class="faq-icon">+</span></button>
-      <div class="faq-a"><div class="faq-a-inner">Gemini offers a generous free tier. OpenAI and Anthropic give free API credits to new accounts. You can also run Ollama locally for free with no API key at all.</div></div>
+      <button class="faq-q" onclick="toggleFaq(this)">Which providers offer free tiers? <span class="faq-icon">+</span></button>
+      <div class="faq-a"><div class="faq-a-inner">Gemini offers a generous free tier. OpenAI and Anthropic provide free API credits to new accounts. Ollama is completely free for local inference with no API key needed.</div></div>
     </div>
     <div class="faq-item">
       <button class="faq-q" onclick="toggleFaq(this)">Does Assistance send my audio to the cloud? <span class="faq-icon">+</span></button>
-      <div class="faq-a"><div class="faq-a-inner">Only if you use a cloud provider. In local mode with Ollama + Whisper, all processing happens on your machine. Nothing is sent anywhere.</div></div>
+      <div class="faq-a"><div class="faq-a-inner">Only if you use a cloud provider. In offline mode with Ollama + Whisper, all processing happens on your machine. Zero network calls, zero cloud uploads. No telemetry or analytics in any mode.</div></div>
     </div>
     <div class="faq-item">
       <button class="faq-q" onclick="toggleFaq(this)">How many speakers can it identify? <span class="faq-icon">+</span></button>
-      <div class="faq-a"><div class="faq-a-inner">Speaker diarization works well for 2-6 speakers in a conversation. It automatically labels them (Speaker A, Speaker B, etc.) so the AI has full context of who is asking what.</div></div>
+      <div class="faq-a"><div class="faq-a-inner">Speaker diarization works well for 2-6 speakers in a conversation. It automatically labels them (Speaker A, Speaker B, etc.) so the AI has full context of who is speaking when.</div></div>
     </div>
     <div class="faq-item">
-      <button class="faq-q" onclick="toggleFaq(this)">Can I use it for exams or high-stakes situations? <span class="faq-icon">+</span></button>
-      <div class="faq-a"><div class="faq-a-inner">Assistance runs entirely on your device and is invisible — there's no camera or screen-sharing from any external service. How you use it is your responsibility.</div></div>
+      <button class="faq-q" onclick="toggleFaq(this)">What tech stack does Assistance use? <span class="faq-icon">+</span></button>
+      <div class="faq-a"><div class="faq-a-inner">Built on Electron 30 with LitElement for the UI, marked.js for Markdown rendering, and highlight.js for code syntax. Gemini Live API via WebSocket for real-time audio streaming. Ollama for local LLM inference and Whisper via HuggingFace Transformers for offline speech-to-text.</div></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">Can I customize the prompts? <span class="faq-icon">+</span></button>
+      <div class="faq-a"><div class="faq-a-inner">Yes. Each of the 6 built-in profiles has tailored prompts, and you can paste custom instructions like your resume, job description, or meeting context to personalize AI responses further.</div></div>
     </div>
   </div>
 </section>
@@ -869,11 +903,10 @@
   <div class="footer-logo">Assistance</div>
   <div class="footer-links">
     <a href="https://github.com/antan2002/assistance" target="_blank">GitHub</a>
-    <a href="#">Docs</a>
-    <a href="#">Releases</a>
-    <a href="#">GPL-3.0 License</a>
+    <a href="https://github.com/antan2002/assistance/releases" target="_blank">Releases</a>
+    <a href="https://github.com/antan2002/assistance/blob/main/LICENSE" target="_blank">GPL-3.0 License</a>
   </div>
-  <div class="footer-legal">Not affiliated with any AI provider.</div>
+  <div class="footer-legal">Not affiliated with any AI provider. Built by <a href="https://github.com/antan2002" style="color:#888;text-decoration:underline;" target="_blank">@antan2002</a></div>
 </footer>
 
 <script>

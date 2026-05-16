@@ -1002,6 +1002,17 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 return { success: false, error: error.message };
             }
         }
+        const TEXT_PROVIDERS = ['openrouter', 'claude', 'openai', 'deepseek', 'opencode'];
+        if (TEXT_PROVIDERS.includes(currentProviderMode)) {
+            try {
+                const pcmBuffer = Buffer.from(data, 'base64');
+                getLocalAi().processLocalAudio(pcmBuffer);
+                return { success: true };
+            } catch (error) {
+                console.error(`Error sending ${currentProviderMode} mic audio:`, error);
+                return { success: false, error: error.message };
+            }
+        }
         if (!geminiSessionRef.current) return { success: false, error: 'No active Gemini session' };
         try {
             process.stdout.write(',');
@@ -1011,6 +1022,20 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             return { success: true };
         } catch (error) {
             console.error('Error sending mic audio:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Force flush any buffered audio in VAD (for push-to-talk mode)
+    ipcMain.handle('flush-mic-audio', async () => {
+        try {
+            const TEXT_PROVIDERS = ['openrouter', 'claude', 'openai', 'deepseek', 'opencode'];
+            if (currentProviderMode === 'local' || TEXT_PROVIDERS.includes(currentProviderMode)) {
+                getLocalAi().flushVad();
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Error flushing mic audio:', error);
             return { success: false, error: error.message };
         }
     });

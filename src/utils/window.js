@@ -265,6 +265,19 @@ function updateGlobalShortcuts(keybinds, mainWindow, sendToRenderer, geminiSessi
         }
     }
 
+    // Register push-to-talk toggle (Ctrl+Shift+D) — always active
+    try {
+        globalShortcut.register('Ctrl+Shift+D', () => {
+            console.log('Toggle mic shortcut triggered');
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.executeJavaScript('cheatingDaddy.toggleMicListening()');
+            }
+        });
+        console.log('Registered toggleMic: Ctrl+Shift+D');
+    } catch (error) {
+        console.error('Failed to register toggleMic:', error);
+    }
+
     // Register emergency erase shortcut
     if (keybinds.emergencyErase) {
         try {
@@ -311,6 +324,15 @@ function setupWindowIpcHandlers(mainWindow, sendToRenderer, geminiSessionRef) {
     ipcMain.on('update-keybinds', (event, newKeybinds) => {
         if (!mainWindow.isDestroyed()) {
             updateGlobalShortcuts(newKeybinds, mainWindow, sendToRenderer, geminiSessionRef);
+        }
+    });
+
+    ipcMain.on('microphone-mode-changed', (event, mode) => {
+        if (!mainWindow.isDestroyed()) {
+            mainWindow.webContents.executeJavaScript(`
+                micMode = '${mode}';
+                console.log('Microphone mode updated to:', '${mode}');
+            `);
         }
     });
 

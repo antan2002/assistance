@@ -185,6 +185,7 @@ export class CustomizeView extends LitElement {
         backgroundTransparency: { type: Number },
         fontSize: { type: Number },
         theme: { type: String },
+        microphoneMode: { type: String },
         onProfileChange: { type: Function },
         onLanguageChange: { type: Function },
         onImageQualityChange: { type: Function },
@@ -214,6 +215,7 @@ export class CustomizeView extends LitElement {
         this.backgroundTransparency = 0.8;
         this.fontSize = 20;
         this.audioMode = 'speaker_only';
+        this.microphoneMode = 'always_on';
         this.customPrompt = '';
         this.theme = 'dark';
         this._loadFromStorage();
@@ -230,6 +232,7 @@ export class CustomizeView extends LitElement {
             this.backgroundTransparency = prefs.backgroundTransparency ?? 0.8;
             this.fontSize = prefs.fontSize ?? 20;
             this.audioMode = prefs.audioMode ?? 'speaker_only';
+            this.microphoneMode = prefs.microphoneMode ?? 'always_on';
             this.customPrompt = prefs.customPrompt ?? '';
             this.theme = prefs.theme ?? 'dark';
             if (keybinds) {
@@ -353,6 +356,16 @@ export class CustomizeView extends LitElement {
     async handleCustomPromptInput(e) {
         this.customPrompt = e.target.value;
         await cheatingDaddy.storage.updatePreference('customPrompt', this.customPrompt);
+    }
+
+    async handleMicrophoneModeSelect(e) {
+        this.microphoneMode = e.target.value;
+        await cheatingDaddy.storage.updatePreference('microphoneMode', this.microphoneMode);
+        if (window.require) {
+            const { ipcRenderer } = window.require('electron');
+            ipcRenderer.send('microphone-mode-changed', this.microphoneMode);
+        }
+        this.requestUpdate();
     }
 
     async handleAudioModeSelect(e) {
@@ -486,6 +499,7 @@ export class CustomizeView extends LitElement {
                 selectedScreenshotInterval: '5',
                 selectedImageQuality: 'medium',
                 audioMode: 'speaker_only',
+                microphoneMode: 'always_on',
                 fontSize: 20,
                 backgroundTransparency: 0.8,
                 googleSearchEnabled: false,
@@ -508,6 +522,7 @@ export class CustomizeView extends LitElement {
             this.selectedLanguage = defaults.selectedLanguage;
             this.selectedImageQuality = defaults.selectedImageQuality;
             this.audioMode = defaults.audioMode;
+            this.microphoneMode = defaults.microphoneMode;
             this.fontSize = defaults.fontSize;
             this.backgroundTransparency = defaults.backgroundTransparency;
             this.googleSearchEnabled = defaults.googleSearchEnabled;
@@ -590,6 +605,51 @@ export class CustomizeView extends LitElement {
                             <option value="medium">Medium Quality</option>
                             <option value="low">Low Quality</option>
                         </select>
+                    </div>
+                </div>
+            </section>
+        `;
+    }
+
+    renderMicrophoneSection() {
+        return html`
+            <section class="surface">
+                <div class="surface-title">Microphone Mode</div>
+                <div class="form-grid">
+                    <div class="toggle-row" style="cursor:pointer;" @click=${() => this.handleMicrophoneModeSelect({ target: { value: 'always_on' } })}>
+                        <input
+                            type="radio"
+                            class="toggle-input"
+                            name="microphoneMode"
+                            value="always_on"
+                            ?checked=${this.microphoneMode === 'always_on'}
+                            @change=${this.handleMicrophoneModeSelect}
+                        />
+                        <label class="toggle-label" style="flex:1;cursor:pointer;">
+                            <strong>Always On</strong>
+                            <div style="font-size:var(--font-size-xs);color:var(--text-muted);font-weight:400;margin-top:2px;">
+                                Microphone continuously listens automatically. Voice detection starts immediately after session start.
+                            </div>
+                        </label>
+                    </div>
+                    <div class="toggle-row" style="cursor:pointer;" @click=${() => this.handleMicrophoneModeSelect({ target: { value: 'push_to_talk' } })}>
+                        <input
+                            type="radio"
+                            class="toggle-input"
+                            name="microphoneMode"
+                            value="push_to_talk"
+                            ?checked=${this.microphoneMode === 'push_to_talk'}
+                            @change=${this.handleMicrophoneModeSelect}
+                        />
+                        <label class="toggle-label" style="flex:1;cursor:pointer;">
+                            <strong>Push to Talk</strong>
+                            <div style="font-size:var(--font-size-xs);color:var(--text-muted);font-weight:400;margin-top:2px;">
+                                Microphone only starts listening when you click the mic icon. Audio is sent automatically when you stop.
+                            </div>
+                        </label>
+                    </div>
+                    <div style="font-size:var(--font-size-xs);color:var(--text-muted);padding:var(--space-xs) var(--space-sm);">
+                        Shortcut: <kbd style="font-family:var(--font-mono);background:var(--bg-elevated);padding:1px 6px;border-radius:3px;border:1px solid var(--border);">Ctrl+Shift+D</kbd> to toggle mic in Push to Talk mode
                     </div>
                 </div>
             </section>
@@ -708,6 +768,7 @@ export class CustomizeView extends LitElement {
                 <div class="unified-wrap">
                     <div class="page-title">Settings</div>
                     ${this.renderAudioSection()}
+                    ${this.renderMicrophoneSection()}
                     ${this.renderLanguageSection()}
                     ${this.renderAppearanceSection()}
                     ${this.renderKeyboardSection()}

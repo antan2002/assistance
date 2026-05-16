@@ -16,6 +16,13 @@ let offscreenCanvas = null;
 let offscreenContext = null;
 let currentImageQuality = 'medium'; // Store current image quality for manual screenshots
 
+// ==== Push-to-Talk state ====
+let micState = 'idle'; // 'idle' | 'listening' | 'processing'
+let micMode = 'always_on';
+let micMediaStream = null;
+let micAudioContextRef = null;
+let micProcessorRef = null;
+
 const isLinux = process.platform === 'linux';
 const isMacOS = process.platform === 'darwin';
 
@@ -149,6 +156,7 @@ let preferencesCache = null;
 
 async function loadPreferencesCache() {
     preferencesCache = await storage.getPreferences();
+    micMode = preferencesCache.microphoneMode || 'always_on';
     return preferencesCache;
 }
 
@@ -307,7 +315,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
 
             console.log('macOS screen capture started - audio handled by SystemAudioDump');
 
-            if (audioMode === 'mic_only' || audioMode === 'both') {
+            if (micMode !== 'push_to_talk' && (audioMode === 'mic_only' || audioMode === 'both')) {
                 let micStream = null;
                 try {
                     micStream = await navigator.mediaDevices.getUserMedia({
@@ -364,7 +372,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
             }
 
             // Additionally get microphone input for Linux based on audio mode
-            if (audioMode === 'mic_only' || audioMode === 'both') {
+            if (micMode !== 'push_to_talk' && (audioMode === 'mic_only' || audioMode === 'both')) {
                 let micStream = null;
                 try {
                     micStream = await navigator.mediaDevices.getUserMedia({
@@ -411,7 +419,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
             // Setup audio processing for Windows loopback audio only
             setupWindowsLoopbackProcessing();
 
-            if (audioMode === 'mic_only' || audioMode === 'both') {
+            if (micMode !== 'push_to_talk' && (audioMode === 'mic_only' || audioMode === 'both')) {
                 let micStream = null;
                 try {
                     micStream = await navigator.mediaDevices.getUserMedia({
@@ -739,6 +747,112 @@ async function captureManualScreenshot(imageQuality = null) {
     );
 }
 
+// ── Push-to-Talk Mic Control ──
+
+function setMicState(state) {
+    micState = state;
+    window.dispatchEvent(new CustomEvent('mic-state-changed', { detail: { state: micState } }));
+}
+
+function getMicState() {
+    return micState;
+}
+
+function getMicMode() {
+    return micMode;
+}
+
+async function startMicListening() {
+    if (micState === 'listening') return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                sampleRate: SAMPLE_RATE,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+            },
+            video: false,
+        });
+
+        micMediaStream = stream;
+        const ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+        const source = ctx.createMediaStreamSource(stream);
+        const processor = ctx.createScriptProcessor(BUFFER_SIZE, 1, 1);
+
+        let audioBuffer = [];
+        const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
+
+        processor.onaudioprocess = async e => {
+            const inputData = e.inputBuffer.getChannelData(0);
+            audioBuffer.push(...inputData);
+
+            while (audioBuffer.length >= samplesPerChunk) {
+                const chunk = audioBuffer.splice(0, samplesPerChunk);
+                const pcmData16 = convertFloat32ToInt16(chunk);
+                const base64Data = arrayBufferToBase64(pcmData16.buffer);
+
+                await ipcRenderer.invoke('send-mic-audio-content', {
+                    data: base64Data,
+                    mimeType: 'audio/pcm;rate=24000',
+                });
+            }
+        };
+
+        source.connect(processor);
+        processor.connect(ctx.destination);
+
+        micAudioContextRef = ctx;
+        micProcessorRef = processor;
+
+        setMicState('listening');
+        cheatingDaddy.setStatus('Listening...');
+        console.log('Push-to-talk mic started');
+    } catch (err) {
+        console.error('Failed to start mic listening:', err);
+        setMicState('idle');
+    }
+}
+
+async function stopMicListening() {
+    if (micState !== 'listening') return;
+
+    // Stop capture first to prevent new audio chunks
+    if (micProcessorRef) {
+        micProcessorRef.disconnect();
+        micProcessorRef = null;
+    }
+    if (micAudioContextRef) {
+        micAudioContextRef.close();
+        micAudioContextRef = null;
+    }
+    if (micMediaStream) {
+        micMediaStream.getTracks().forEach(track => track.stop());
+        micMediaStream = null;
+    }
+
+    // Flush remaining VAD audio for local/text providers
+    try {
+        await ipcRenderer.invoke('flush-mic-audio');
+    } catch (e) {
+        console.warn('Flush mic audio failed:', e);
+    }
+
+    setMicState('processing');
+    console.log('Push-to-talk mic stopped, awaiting response');
+}
+
+function toggleMicListening() {
+    if (micMode !== 'push_to_talk') return;
+    if (cheatingDaddy.getCurrentView() !== 'assistant') return;
+    if (micState === 'idle') {
+        startMicListening();
+    } else if (micState === 'listening') {
+        stopMicListening();
+    }
+}
+
 // Expose functions to global scope for external access
 window.captureManualScreenshot = captureManualScreenshot;
 
@@ -758,6 +872,21 @@ function stopCapture() {
         micAudioProcessor.disconnect();
         micAudioProcessor = null;
     }
+
+    // Clean up push-to-talk mic resources
+    if (micProcessorRef) {
+        micProcessorRef.disconnect();
+        micProcessorRef = null;
+    }
+    if (micAudioContextRef) {
+        micAudioContextRef.close();
+        micAudioContextRef = null;
+    }
+    if (micMediaStream) {
+        micMediaStream.getTracks().forEach(track => track.stop());
+        micMediaStream = null;
+    }
+    micState = 'idle';
 
     if (audioContext) {
         audioContext.close();
@@ -1116,6 +1245,15 @@ const cheatingDaddy = {
     stopCapture,
     sendTextMessage,
     handleShortcut,
+
+    // Push-to-talk mic
+    startMicListening,
+    stopMicListening,
+    toggleMicListening,
+    getMicState,
+    setMicState,
+    getMicMode,
+    micState,
 
     // Storage API
     storage,

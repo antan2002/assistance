@@ -24,7 +24,7 @@ const VAD_MODES = {
     NORMAL: { energyThreshold: 0.01, speechFramesRequired: 3, silenceFramesRequired: 30 },
     LOW_BITRATE: { energyThreshold: 0.008, speechFramesRequired: 4, silenceFramesRequired: 35 },
     AGGRESSIVE: { energyThreshold: 0.015, speechFramesRequired: 2, silenceFramesRequired: 20 },
-    VERY_AGGRESSIVE: { energyThreshold: 0.02, speechFramesRequired: 2, silenceFramesRequired: 15 },
+    VERY_AGGRESSIVE: { energyThreshold: 0.02, speechFramesRequired: 2, silenceFramesRequired: 6 },
 };
 let vadConfig = VAD_MODES.VERY_AGGRESSIVE;
 
@@ -247,8 +247,9 @@ function setTranscriptionCallback(callback) {
 // ── Speech End Handler ──
 async function handleSpeechEnd(audioData) {
     if (!isLocalActive) return;
-    if (audioData.length < 16000) {
+    if (audioData.length < 8000) {
         console.log('[LocalAI] Audio too short, skipping');
+        sendToRenderer('new-response', '_NO_AUDIO_');
         sendToRenderer('update-status', 'Listening...');
         return;
     }
@@ -256,6 +257,7 @@ async function handleSpeechEnd(audioData) {
     const transcription = await transcribeAudio(audioData);
     if (!transcription || transcription.trim() === '' || transcription.trim().length < 2) {
         console.log('[LocalAI] Empty transcription, skipping');
+        sendToRenderer('new-response', '_NO_AUDIO_');
         sendToRenderer('update-status', 'Listening...');
         return;
     }
@@ -378,6 +380,17 @@ function closeLocalSession() {
     currentSystemPrompt = null;
 }
 
+function flushVad() {
+    if (isSpeaking) {
+        isSpeaking = false;
+        console.log('[LocalAI] Flushing VAD buffer on mic stop');
+        sendToRenderer('update-status', 'Transcribing...');
+        const audioData = Buffer.concat(speechBuffers);
+        speechBuffers = [];
+        handleSpeechEnd(audioData);
+    }
+}
+
 function resetVadState() {
     isSpeaking = false;
     speechBuffers = [];
@@ -458,6 +471,7 @@ module.exports = {
     initializeLocalSession,
     processLocalAudio,
     closeLocalSession,
+    flushVad,
     resetVadState,
     isLocalSessionActive,
     setLocalActive,
