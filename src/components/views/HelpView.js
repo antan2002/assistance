@@ -165,7 +165,7 @@ export class HelpView extends LitElement {
                         <div class="link-row">
                             <button class="link-button" @click=${() => this._open('https://github.com/antan2002/assistance')}>GitHub Repository</button>
                             <button class="link-button" @click=${() => this._open('https://github.com/antan2002')}>GitHub Profile</button>
-                            <button class="link-button" @click=${() => this._open('#')}>Website</button>
+                            <button class="link-button" @click=${() => this._open('https://assistancee.vercel.app/')}>Website</button>
                         </div>
                     </section>
 
