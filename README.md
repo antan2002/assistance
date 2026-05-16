@@ -1,4 +1,5 @@
 # Assistance
+<img width="1898" height="871" alt="image" src="https://github.com/user-attachments/assets/32f36e5c-3fcb-4a2a-824e-9bd519cfb057" />
 
 A real-time AI assistant that provides contextual help during video calls, interviews, presentations, and meetings using screen capture and audio analysis.
 
